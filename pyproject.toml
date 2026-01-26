@@ -20,6 +20,8 @@ dependencies = [
     "vllm==0.7.2",
     "wandb>=0.19.8",
     "xopen>=2.0.2",
+    "ipykernel>=6.29.5",
+    "jaxtyping>=0.3.5",
 ]
 
 [tool.setuptools.packages.find]
@@ -29,6 +31,9 @@ include = ["cs336_alignment"]
 package = true
 no-build-isolation-package = ["flash-attn"]
 
+# [[tool.uv.index]]
+# name = "mirror"
+# url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 
 [tool.uv.sources]
 alpaca-eval = { git = "https://github.com/nelson-liu/alpaca_eval.git", rev = "forward_kwargs_to_vllm" }
