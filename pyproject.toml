@@ -1,5 +1,5 @@
 [project]
-name = "alignment"
+name = "cs336_alignment"
 version = "1.0.0"
 description = "CS 336 Spring 2025 Assignment 5: Alignment"
 readme = "README.md"
