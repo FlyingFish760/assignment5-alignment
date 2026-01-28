@@ -10,48 +10,50 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from jaxtyping import Int, Float
 import wandb
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from vllm.model_executor import set_random_seed as vllm_set_random_seed
 
-from transformers import AutoModelForCausalLM
+from sft_for_math.data import SFTDataset, SFTValDataset
+from sft_for_math.helper_funcs import sft_microbatch_train_step, get_response_log_probs, learning_rate_schedule
+from sft_for_math.utils import logger, save_checkpoint
 
+# def train_step(inputs: Int[Tensor, "b seq_len"],
+#                 targets: Int[Tensor, "b seq_len"],
+#                 step: int) -> Float[Tensor, ""]:
+#     '''
+#     One training epoch of the complete given data.
 
+#     inputs: Input token ids;
+#     targets: Target token ids;
 
-def train_step(inputs: Int[Tensor, "b seq_len"],
-                targets: Int[Tensor, "b seq_len"],
-                step: int) -> Float[Tensor, ""]:
-    '''
-    One training epoch of the complete given data.
+#     '''
+#     model.train()
 
-    inputs: Input token ids;
-    targets: Target token ids;
+#     optimizer.zero_grad()
+#     # Set the optimizer learning rate
+#     lr = learning_rate_schedule(
+#         step + 1, 
+#         max_lr=model_opt_config["max_lr"],
+#         min_lr=model_opt_config["max_lr"] * 0.1,
+#         warmup_iters=int(train_steps * training_config["warmup_ratio"]),
+#         cosine_cycle_iters=int(train_steps * training_config["cosine_ratio"])
+#     )
+#     for param_group in optimizer.param_groups:
+#         param_group["lr"] = lr
 
-    '''
-    model.train()
+#     # Forward pass
+#     logits = model(inputs)
 
-    optimizer.zero_grad()
-    # Set the optimizer learning rate
-    lr = learning_rate_schedule(
-        step + 1, 
-        max_lr=model_opt_config["max_lr"],
-        min_lr=model_opt_config["max_lr"] * 0.1,
-        warmup_iters=int(train_steps * training_config["warmup_ratio"]),
-        cosine_cycle_iters=int(train_steps * training_config["cosine_ratio"])
-    )
-    for param_group in optimizer.param_groups:
-        param_group["lr"] = lr
+#     # Compute loss
+#     loss = cross_entropy(logits, targets)
 
-    # Forward pass
-    logits = model(inputs)
+#     # Back proporgation (to get gradients)
+#     loss.backward()
 
-    # Compute loss
-    loss = cross_entropy(logits, targets)
+#     # Optimizer step
+#     optimizer.step()
 
-    # Back proporgation (to get gradients)
-    loss.backward()
-
-    # Optimizer step
-    optimizer.step()
-
-    return loss
+#     return loss
 
 def evaluate():
     model.eval()
@@ -67,6 +69,24 @@ def evaluate():
 
     return total_loss / (step + 1)
 
+def log_train_performance():
+    if (step + 1) % log_steps == 0 or (step + 1) == train_steps:
+        lr = optimizer.param_groups[0]["lr"]
+        cur_time = time.time()
+        spent_time = (cur_time - start_time) // 60
+        log_info = f"(Step: {step + 1}/{train_steps}), train_loss: {loss_step:.4f}, lr: {lr:.6f}, spent time: {spent_time}min"
+        logger(log_info)
+        if wandb_config["use_wandb"]:
+            wandb_log = {
+                "train_step": step,
+                "train/loss": loss_step,
+                "train/lr": lr,
+                "train/spent time (min)": spent_time
+            }
+            wandb_run.log(wandb_log)
+
+    loss_step = 0
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="model pre-train")
@@ -75,6 +95,8 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, default="./configs/base.yaml", help="Path to config file")
     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu", help="Device for training")
     parser.add_argument("--batch_size", type=int, help="Number of samples per batch")
+    parser.add_argument("--train_data_path", type=str, help="Path to the training dataset")
+    parser.add_argument("--val_data_path", type=str, help="Path to the validation dataset")
     parser.add_argument("--log_step_rate", type=float, default=0.01, help="Rate of train steps to log train loss")
     parser.add_argument("--save_step_rate", type=float, default=0.2, help="Rate of train steps to save checkpoint")
     parser.add_argument("--eval_step_rate", type=float, default=0.1, help="Rate of train steps to evaluate model performance")
@@ -119,21 +141,22 @@ if __name__ == "__main__":
     #     start_step = load_checkpoint(args.load_path, model, optimizer)
     # else:
     #     start_step = 0
+    start_step = 0
 
     #--------------Set up dataloader---------------
-    train_ds = PretrainDataset(data_config["train_data_path"],
-                               context_length=data_config["sample_length"])
-    train_dataloader = DataLoader(train_ds, 
-                                  batch_size=args.batch_size,
-                                  shuffle=True,
-                                  drop_last=True,
-                                  num_workers=0)
-    val_ds = PretrainDataset(data_config["val_data_path"],
-                             context_length=data_config["sample_length"])
-    val_dataloader = DataLoader(val_ds, 
-                                  batch_size=args.batch_size,
-                                  shuffle=False,
-                                  drop_last=True)
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-Math-1.5B", local_files_only=True)
+    train_ds = SFTDataset(args.train_data_path, tokenizer)
+    train_dataloader = DataLoader(
+        train_ds,
+        batch_size=cfg["batch_size"],
+        shuffle=True
+    )
+    val_ds = SFTValDataset(args.val_data_path, tokenizer)
+    val_dataloader = DataLoader(
+        val_ds,
+        batch_size=cfg["batch_size"],
+        shuffle=False
+    )
 
     #--------------Init wandb---------------
     if wandb_config["use_wandb"]:
@@ -143,6 +166,16 @@ if __name__ == "__main__":
             name=wandb_config["wandb_run"],
             config=wandb_config["config"]
         )
+
+    # Setup wandb metrics
+    wandb.define_metric("train_step") # the x‑axis for training
+    wandb.define_metric("eval_step") # the x‑axis for evaluation
+
+    # everything that starts with train/ is tied to train_step
+    wandb.define_metric("train/*", step_metric="train_step")
+
+    # everything that starts with eval/ is tied to eval_step
+    wandb.define_metric("eval/*", step_metric="eval_step")
     
     #--------------Training loop---------------
     # Define steps
@@ -152,31 +185,52 @@ if __name__ == "__main__":
     eval_steps = int(train_steps * args.eval_step_rate)
 
     start_time = time.time()
-    for step, (inputs, targets) in enumerate(train_dataloader, 
+    loss_step = 0
+    for step, (inputs, targets, reponse_mask) in enumerate(train_dataloader, 
                                             start=start_step):
         # Train 
+        model.train()
         inputs = inputs.to(args.device)
         targets = targets.to(args.device)
-        train_loss = train_step(inputs, targets, step)
+        log_probs_res = get_response_log_probs(
+            model,
+            inputs,
+            targets,
+            return_token_entropy=True
+        )
 
-        # Log training performance
-        if (step + 1) % log_steps == 0 or (step + 1) == train_steps:
-            lr = optimizer.param_groups[0]["lr"]
-            cur_time = time.time()
-            spent_time = (cur_time - start_time) // 60
-            log_info = f"(Step: {step + 1}/{train_steps}), train_loss: {train_loss:.4f}, lr: {lr:.6f}, spent time: {spent_time}min"
-            logger(log_info)
-            if wandb_config["use_wandb"]:
-                wandb_log = {
-                    "train loss": train_loss,
-                    "lr": lr,
-                    "spent time (min)": spent_time
-                }
-                wandb_run.log(wandb_log)
+        policy_log_probs = log_probs_res["log_probs"]
+        token_entropy = log_probs_res["token_entropy"]
+
+        loss_microstep, _ = sft_microbatch_train_step(
+            policy_log_probs,
+            reponse_mask,
+            cfg["grad_accumulation_steps"]
+        )
+        loss_step += loss_microstep
+
+        if (step + 1) % cfg["grad_accumulation_steps"] == 0:
+            # Set the optimizer lr
+            lr = learning_rate_schedule(
+                step + 1, 
+                max_lr=cfg["max_lr"],
+                min_lr=cfg["max_lr"] * 0.1,
+                warmup_iters=int(train_steps * cfg["warmup_ratio"]),
+                cosine_cycle_iters=int(train_steps * cfg["cosine_ratio"])
+            )
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = lr
+
+            # Optimizer makes step
+            optimizer.step()
+            optimizer.zero_grad()
+
+            # Log training performance
+            log_train_performance()
 
         # Save checkpoints
         os.makedirs(args.save_dir, exist_ok=True)
-        save_path = f"{args.save_dir}/bs_{args.batch_size}_lr_{model_opt_config["max_lr"]}_{step + 1}.pt"
+        save_path = f"{args.save_dir}/lr_{model_opt_config["max_lr"]}_{step + 1}.pt"
         if (step + 1) % save_steps == 0:  
             save_checkpoint(model, optimizer, step + 1, save_path)
             cur_time = time.time()
@@ -185,7 +239,7 @@ if __name__ == "__main__":
             logger(log_info)
 
 
-        # Evaluate validation loss
+        # Evaluate accuracy
         if (step + 1) % eval_steps == 0 or (step + 1) == train_steps:
             val_loss = evaluate()
             cur_time = time.time()

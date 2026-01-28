@@ -203,7 +203,6 @@ def sft_microbatch_train_step(
             normalize_constant,
             dim=-1
         )   # (b,)
-
     batch_size = policy_log_probs.shape[0]
     loss = -torch.sum(masked_sum_probs) / batch_size / gradient_accumulation_steps
     loss.backward()
@@ -262,6 +261,24 @@ def log_generations(
     ]
 
     return records
+
+def learning_rate_schedule(it: int, 
+                           max_lr: float, 
+                           min_lr: float, 
+                           warmup_iters: int, 
+                           cosine_cycle_iters: int) -> float:
+    '''
+    It: starts from 1
+    '''
+    if it <= 0:
+        raise ValueError(f"Wrong iteration of {it}.")
+    if it < warmup_iters:
+        lr = it / warmup_iters * max_lr
+    elif it <= cosine_cycle_iters:
+        lr = min_lr + (max_lr - min_lr) * 0.5 * (1 + math.cos(((it - warmup_iters) / (cosine_cycle_iters - warmup_iters)) * math.pi))
+    else:
+        lr = min_lr
+    return lr
 
 
 if __name__ == "__main__":
