@@ -5,59 +5,7 @@ from urllib import response
 
 from vllm import LLM, SamplingParams
 from drgrpo_grader import r1_zero_reward_fn
-
-def evaluate_vllm(
-    vllm_model: LLM,
-    reward_func: Callable[[str, str], dict[str, float]],
-    data_path: str,
-    eval_sampling_params: SamplingParams,
-    prompt_temp_path: str
-) -> list[dict]:
-    '''
-    Evaluatea language model on a list of prompts,
-    compute evaluation metrics, and serialize results to disk.
-
-    Params
-    data_path: example data path to a jsonl file
-    '''
-    # load the example data
-    with open(data_path, "r", encoding='utf-8') as f:
-        data = json.load(f)
-
-    # format each example as a string prompt for the language model using the r1_zero prompt
-    formatted_prompts = []
-    prompt_template = Path(prompt_temp_path).read_text(encoding="utf-8")
-    for sample in data:
-        formatted_p = prompt_template.format(
-            question = sample["problem"]
-        )
-        formatted_prompts.append(formatted_p)
-
-    # generate model outputs for each example
-    outputs = vllm_model.generate(formatted_prompts, eval_sampling_params)
-
-    # compute the relevant evaluation metrics
-    records = []
-    num_samples = len(data)
-    for i in range(num_samples):
-        output = outputs[i]
-        ground_truth = data[i]["expected_answer"]
-
-        prompt = output.prompt
-        generated_text = output.outputs[0].text
-        eval_score = reward_func(
-            response = generated_text,
-            ground_truth = ground_truth
-        )
-        record = {
-            "prompt": prompt,
-            "generated_text": generated_text,
-            "eval_score": eval_score
-        }
-        records.append(record)
-
-    return records
-
+from sft_for_math.helper_funcs import evaluate_vllm
     
 
 if __name__ == "__main__":

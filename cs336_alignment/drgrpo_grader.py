@@ -990,6 +990,10 @@ def extract_answer(passage: str) -> str:
 
 
 def grade(model_answer: str, gt_answer: str, fast: bool = True):
+    # Modified: Data issue in the file "data/sft-cs336-assign5-datasets/sft-reason/val.jsonl"
+    # The elements of some expected answer of lists are not str.
+    if not isinstance(gt_answer, str):
+        gt_answer = str(gt_answer)
     if "\\boxed" in gt_answer:
         gt_answer = extract_answer(gt_answer)
     correct = grade_answer_mathd(model_answer, gt_answer) or grade_answer_sympy(

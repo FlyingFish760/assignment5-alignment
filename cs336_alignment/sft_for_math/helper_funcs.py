@@ -1,9 +1,11 @@
 from typing import Callable
 import json
 from pathlib import Path
+import math
+from collections.abc import Iterable
 
 import torch
-from torch import Tensor, log_
+from torch import Tensor, log_, nn
 from jaxtyping import Float
 from transformers import PreTrainedTokenizer, PreTrainedModel, AutoTokenizer, AutoModelForCausalLM
 from vllm import LLM, SamplingParams
@@ -130,8 +132,7 @@ def get_response_log_probs(
     res = {}
 
     # Compute next token log-probability
-    with torch.inference_mode():
-        logits = model(input_ids).logits
+    logits = model(input_ids).logits
     p = torch.nn.functional.softmax(logits, dim=-1)   # (b, n, vocab_size)
     p_label = torch.gather(p, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)    # (b, n)
     log_probs = torch.log(p_label)
@@ -280,6 +281,73 @@ def learning_rate_schedule(it: int,
         lr = min_lr
     return lr
 
+def evaluate_vllm(
+    vllm_model: LLM,
+    reward_func: Callable[[str, str], dict[str, float]],
+    data_path: str,
+    eval_sampling_params: SamplingParams,
+    prompt_temp_path: str
+) -> list[dict]:
+    '''
+    Evaluatea language model on a list of prompts,
+    compute evaluation metrics, and serialize results to disk.
+
+    Params
+    data_path: example data path to a jsonl file
+    '''
+    # load the example data
+    with open(data_path, "r", encoding='utf-8') as f:
+        data = json.load(f)
+
+    # format each example as a string prompt for the language model using the r1_zero prompt
+    formatted_prompts = []
+    prompt_template = Path(prompt_temp_path).read_text(encoding="utf-8")
+    for sample in data:
+        formatted_p = prompt_template.format(
+            question = sample["problem"]
+        )
+        formatted_prompts.append(formatted_p)
+
+    # generate model outputs for each example
+    outputs = vllm_model.generate(formatted_prompts, eval_sampling_params)
+
+    # compute the relevant evaluation metrics
+    records = []
+    format_score, answer_score, reward_score = 0, 0, 0
+    num_samples = len(data)
+    for i in range(num_samples):
+        output = outputs[i]
+        ground_truth = data[i]["expected_answer"]
+
+        prompt = output.prompt
+        generated_text = output.outputs[0].text
+        eval_score = reward_func(
+            response = generated_text,
+            ground_truth = ground_truth
+        )
+        f_score = eval_score["format_reward"]
+        ans_score = eval_score["answer_reward"]
+        r_score = eval_score["reward"]
+
+        record = {
+            "prompt": prompt,
+            "generated_text": generated_text,
+            "eval_score": eval_score
+        }
+        records.append(record)
+
+        format_score += f_score
+        answer_score += ans_score
+        reward_score += r_score
+
+    eval_metrics = {
+        "format_accuracy": format_score / num_samples,
+        "answer_accuracy": answer_score / num_samples,
+        "reward_accuracy": reward_score / num_samples
+    }
+
+    return eval_metrics, records
+
 
 if __name__ == "__main__":
     pass
@@ -339,16 +407,16 @@ if __name__ == "__main__":
     # )
     # print(res)
 
-    # Test log_generations
-    model = LLM(model="Qwen/Qwen2.5-Math-1.5B")
-    sampling_params = SamplingParams(
-        temperature=1.0, top_p=1.0, max_tokens=1024, stop=["</answer>"], include_stop_str_in_output=True
-    )
-    data_path = r"./data/sft-cs336-assign5-datasets/sft-reason/sft_gpt-oss-120b_filtered.jsonl"
-    log = log_generations(
-        data_path,
-        model,
-        sampling_params,
-        r1_zero_reward_fn
-    )
-    print(log[0])
+    # # Test log_generations
+    # model = LLM(model="Qwen/Qwen2.5-Math-1.5B")
+    # sampling_params = SamplingParams(
+    #     temperature=1.0, top_p=1.0, max_tokens=1024, stop=["</answer>"], include_stop_str_in_output=True
+    # )
+    # data_path = r"./data/sft-cs336-assign5-datasets/sft-reason/sft_gpt-oss-120b_filtered.jsonl"
+    # log = log_generations(
+    #     data_path,
+    #     model,
+    #     sampling_params,
+    #     r1_zero_reward_fn
+    # )
+    # print(log[0])
