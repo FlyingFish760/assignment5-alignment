@@ -133,6 +133,7 @@ def get_response_log_probs(
 
     # Compute next token log-probability
     logits = model(input_ids).logits
+
     p = torch.nn.functional.softmax(logits, dim=-1)   # (b, n, vocab_size)
     p_label = torch.gather(p, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)    # (b, n)
     log_probs = torch.log(p_label)
@@ -141,8 +142,9 @@ def get_response_log_probs(
 
     # Compute per-token entropy (if needed)
     if return_token_entropy:
-        token_entropy = compute_entropy(logits)
-        res["token_entropy"] = token_entropy
+        with torch.no_grad():
+            token_entropy = compute_entropy(logits)
+            res["token_entropy"] = token_entropy
 
     return res
 

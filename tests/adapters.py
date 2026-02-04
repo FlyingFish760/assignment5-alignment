@@ -10,6 +10,7 @@ from transformers import PreTrainedTokenizerBase
 
 from cs336_alignment.sft_for_math.helper_funcs import tokenize_prompt_and_output, compute_entropy, \
     get_response_log_probs, masked_normalize, sft_microbatch_train_step
+from cs336_alignment.GRPO.funcs import compute_group_normalized_rewards
 
 
 def run_tokenize_prompt_and_output(
@@ -85,7 +86,12 @@ def run_compute_group_normalized_rewards(
                 You may choose what you wish to log here
                 (some statistics of the rewards, etc.).
     """
-    raise NotImplementedError
+    return compute_group_normalized_rewards(reward_fn,
+                                            rollout_responses,
+                                            repeated_ground_truths,
+                                            group_size,
+                                            advantage_eps,
+                                            normalize_by_std)
 
 
 def run_compute_entropy(logits: torch.Tensor) -> torch.Tensor:

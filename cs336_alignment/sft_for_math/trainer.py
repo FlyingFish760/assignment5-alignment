@@ -142,7 +142,7 @@ def log_train_performance():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="model pre-train")
+    parser = argparse.ArgumentParser(description="SFT for MATH")
 
     # Trainer config
     parser.add_argument("--config", type=str, default="./configs/base.yaml", help="Path to config file")

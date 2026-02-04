@@ -1,0 +1,36 @@
+n_ei_steps: 5
+batch_size: 1024
+n_rollouts: 3
+
+vllm_seed: 42
+
+# SFT training configs
+sft_config:
+  num_epochs: 3
+
+  # Optimizer 
+  betas: [0.9, 0.99]
+  weight_decay: 1.0e-5
+  eps: 1.0e-8
+
+  # lr
+  max_lr: 1.0e-4
+  warmup_ratio: 0.1
+  cosine_ratio: 0.9
+
+  # batch size (gradient accumlation)
+  micro_batch_size: 2
+  grad_accumulation_steps: 8
+  
+  grad_clip_norm: 1.0
+
+  # wandb setting
+  use_wandb: True
+  wandb_team: "cs336_assign5"
+  wandb_project: "EI"
+
+  # log/save setting
+  log_micro_steps: 4 
+  save_steps: 100
+
+  # Evaluation setting
