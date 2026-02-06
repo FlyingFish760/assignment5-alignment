@@ -9,3 +9,4 @@ class PathConfig:
 @dataclass
 class TrainConfig:
     rollout_batch_size: int = 256
+    
