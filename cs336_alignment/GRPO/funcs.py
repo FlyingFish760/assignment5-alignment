@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import math
 import torch
-from vllm import LLM
+from vllm import LLM, SamplingParams
 from vllm.model_executor import set_random_seed as vllm_set_random_seed
 from einops import repeat
 
@@ -330,3 +330,59 @@ def init_vllm(model_id: str, device: str, seed: int, gpu_memory_utilization: flo
             gpu_memory_utilization=gpu_memory_utilization,
         )
     
+def evaluate_vllm(
+    vllm_model: LLM,
+    reward_func: Callable[[str, str], dict[str, float]],
+    dataset: List[Dict[str, str]],
+    eval_sampling_params: SamplingParams,
+    prompt_template: str
+):
+    '''
+    '''
+    # format each example as a string prompt for the language model using the r1_zero prompt
+    formatted_prompts = []
+    for sample in dataset:
+        formatted_p = prompt_template.format(
+            question = sample["problem"]
+        )
+        formatted_prompts.append(formatted_p)
+
+    # generate model outputs for each example
+    outputs = vllm_model.generate(formatted_prompts, eval_sampling_params)
+
+    # compute the relevant evaluation metrics
+    records = []
+    format_score, answer_score, reward_score = 0, 0, 0
+    num_samples = len(dataset)
+    for i in range(num_samples):
+        output = outputs[i]
+        ground_truth = dataset[i]["expected_answer"]
+
+        prompt = output.prompt
+        generated_text = output.outputs[0].text
+        eval_score = reward_func(
+            response = generated_text,
+            ground_truth = ground_truth
+        )
+        f_score = eval_score["format_reward"]
+        ans_score = eval_score["answer_reward"]
+        r_score = eval_score["reward"]
+
+        record = {
+            "prompt": prompt,
+            "generated_text": generated_text,
+            "eval_score": eval_score
+        }
+        records.append(record)
+
+        format_score += f_score
+        answer_score += ans_score
+        reward_score += r_score
+
+    eval_metrics = {
+        "format_accuracy": format_score / num_samples,
+        "answer_accuracy": answer_score / num_samples,
+        "reward_accuracy": reward_score / num_samples
+    }
+
+    return eval_metrics, records

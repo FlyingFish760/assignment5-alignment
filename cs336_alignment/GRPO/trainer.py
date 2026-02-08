@@ -2,33 +2,34 @@ import random
 import json
 from typing import Callable, List, Dict
 from pathlib import Path
-from urllib import response
 
+import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
-import torch
+import torch.nn as nn
 from vllm import LLM, SamplingParams
 from transformers import PreTrainedModel, PreTrainedTokenizer
 
-from GRPO.funcs import compute_group_normalized_rewards, grpo_microbatch_train_step
+from GRPO.funcs import compute_group_normalized_rewards, grpo_microbatch_train_step, evaluate_vllm
 from sft_for_math.helper_funcs import tokenize_prompt_and_output, get_response_log_probs
+from sft_for_math.utils import logger
 
-class GRPODataset(Dataset):
-    def __init__(self,
-                 prompts: List[str],
-                 responses: List[str], 
-                 tokenizer: PreTrainedTokenizer):
-        super().__init__()
-        tokenized_data = tokenize_prompt_and_output(prompts, responses, tokenizer)
-        self.state_ids = tokenized_data["input_ids"]
-        self.action_ids = tokenized_data["labels"]
-        self.response_masks = tokenized_data["response_mask"]
+# class GRPODataset(Dataset):
+#     def __init__(self,
+#                  prompts: List[str],
+#                  responses: List[str], 
+#                  tokenizer: PreTrainedTokenizer):
+#         super().__init__()
+#         tokenized_data = tokenize_prompt_and_output(prompts, responses, tokenizer)
+#         self.state_ids = tokenized_data["input_ids"]
+#         self.action_ids = tokenized_data["labels"]
+#         self.response_masks = tokenized_data["response_mask"]
     
-    def __len__(self):
-        return len(self.state_ids)
+#     def __len__(self):
+#         return len(self.state_ids)
     
-    def __getitem__(self, index):
-        return self.state_ids[index], self.action_ids[index], self.response_masks[index]
+#     def __getitem__(self, index):
+#         return self.state_ids[index], self.action_ids[index], self.response_masks[index]
         
 
 class GRPOTrainer:
@@ -39,11 +40,17 @@ class GRPOTrainer:
                  question_dataset: List[Dict[str, str]],
                  tokenizer: PreTrainedTokenizer,
                  cfg):
+        self.cfg = cfg
         self.policy_model = policy_model
         self.rollout_model = rollout_model
         self.reward_func = reward_func
         self.question_dataset = question_dataset
         self.tokenizer = tokenizer
+
+        # Init full evaluation dataset
+        with open(self.cfg.val_data_path, "r", encoding="utf-8") as f:
+            self.eval_dataset = json.load(f)
+
         # Init optimizer
         self.optimizer = AdamW(
             self.policy_model.parameters(),
@@ -51,7 +58,6 @@ class GRPOTrainer:
             weight_decay=self.cfg.weight_decay,
             betas=self.cfg.betas
         )
-        self.cfg = cfg
 
     def load_policy_into_vllm_instance(self, policy: PreTrainedModel, llm: LLM):
         """
@@ -62,9 +68,9 @@ class GRPOTrainer:
         llm_model = llm.llm_engine.model_executor.driver_worker.model_runner.model
         llm_model.load_weights(state_dict.items())
     
-    def sample_batch_question(self, batch_size: int) -> List[Dict[str, str]]:
-        sampled_inds = random.sample(range(len(self.question_dataset)), k=batch_size)
-        return [self.question_dataset[i] for i in sampled_inds]
+    def sample_batch_question(self, batch_size: int, question_set: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        sampled_inds = random.sample(range(len(question_set)), k=batch_size)
+        return [question_set[i] for i in sampled_inds]
         
     def sample_rollouts(
             self,
@@ -107,18 +113,59 @@ class GRPOTrainer:
 
         return rollouts
 
+    def evaluate_model(self, grpo_step):
+        self.load_policy_into_vllm_instance(self.policy_model, self.rollout_model)
+
+        # Sample a batch of evaluation questions
+        sub_eval_dataset = self.sample_batch_question(
+            batch_size=self.cfg.eval_batch_size, 
+            question_set=self.eval_dataset
+        )
+
+        # Evaluate model on the batch of evaluation questions
+        sampling_params = SamplingParams(
+            temperature=self.cfg.sampling_temperature, 
+            max_tokens=self.cfg.sampling_max_tokens, 
+            stop=self.cfg.sampling_stop, 
+            include_stop_str_in_output=self.cfg.include_stop_str_in_output
+        )
+        prompt_template = Path(self.cfg.prompt_temp_path).read_text(encoding="utf-8")
+        eval_metrics, _ = evaluate_vllm(
+            vllm_model=self.rollout_model,
+            reward_func=self.reward_func,
+            dataset=sub_eval_dataset,
+            eval_sampling_params=sampling_params,
+            prompt_template=prompt_template
+        )
+
+        format_acc = eval_metrics["format_accuracy"]
+        answer_acc = eval_metrics["answer_accuracy"]
+        reward_acc = eval_metrics["reward_accuracy"]
+        log_info = f"[GRPO step:{grpo_step+1}/{self.cfg.n_grpo_steps}], format accuracy: {format_acc:.3f}, answer accuracy: {answer_acc:.3f}, reward accuracy: {reward_acc:.3f}"
+        logger(log_info)
+        # if self.cfg["use_wandb"]:
+        #     wandb_log = {
+        #         "epoch": epoch,
+        #         "eval/format_accuracy": format_acc,
+        #         "eval/answer_accuracy": answer_acc,
+        #         "eval/reward_accuracy": reward_acc
+        #     }
+        #     self.wandb_run.log(wandb_log)
 
     def train_step(self):
         # Sample a batch of questions
         num_sample_questions = self.cfg.rollout_batch_size // self.cfg.group_size
-        sample_questions = self.sample_batch_question(batch_size=num_sample_questions)
+        sample_questions = self.sample_batch_question(
+            batch_size=num_sample_questions, 
+            question_set=self.question_dataset
+        )
 
         # Set the old policy model (for running rollouts)
         self.load_policy_into_vllm_instance(self.policy_model, self.rollout_model)
 
         # Run rollouts
         prompt_template = Path(self.cfg.prompt_temp_path).read_text(encoding="utf-8")
-        sampling_parms = SamplingParams(
+        sampling_params = SamplingParams(
             n=self.cfg.group_size,
             temperature=self.cfg.sampling_temperature, 
             min_tokens=self.cfg.sampling_min_tokens,
@@ -128,7 +175,7 @@ class GRPOTrainer:
         )
         rollouts = self.sample_rollouts(
             self.rollout_model,
-            sampling_parms,
+            sampling_params,
             sample_questions,
             prompt_template
         )
@@ -140,7 +187,7 @@ class GRPOTrainer:
         
 
         # Compute raw reward/ group-normalized advantages
-        raw_reward, advantages, reward_metadata = compute_group_normalized_rewards(
+        raw_rewards, advantages, reward_metadata = compute_group_normalized_rewards(
             self.reward_func,
             rollout_responses,
             rollout_answers,
@@ -149,36 +196,85 @@ class GRPOTrainer:
             self.cfg.use_std_normalization
         )
 
-        # Update policy using policy gradient
-        dataset = GRPODataset(rollout_prompts, rollout_responses, self.tokenizer)
-        dataloader = DataLoader(
-            dataset,
-            batch_size=self.cfg.micro_batch_size,
-            shuffle=True,
-            num_workers=4, 
-            pin_memory=True
+        # #--------------(Train steps) Update policy using policy gradient---------------
+        # Tokenize prompts and responses
+        tokenized_res = tokenize_prompt_and_output(
+            rollout_prompts,
+            rollout_responses,
+            self.tokenizer
         )
-        grad_accumlation_steps = self.cfg.train_batch_size // self.cfg.micro_batch_size
-        for epoch in self.cfg.epochs_per_rollout_batch:
-            for step, (state_ids, action_ids, response_masks) in enumerate(dataloader):
+        state_ids = tokenized_res["input_ids"]
+        action_ids = tokenized_res["labels"]
+        response_masks = tokenized_res["response_mask"]
+
+        # Pre-compute old policy probs
+        if self.cfg.loss_type == "grpo_clip":
+            old_policy_probs_list = []
+            for old_batch_ind in range(0, len(state_ids), self.cfg.micro_batch_size):
+                state_ids_batch = state_ids[old_batch_ind: old_batch_ind+self.cfg.micro_batch_size].to(self.cfg.policy_device)
+                action_ids_batch = action_ids[old_batch_ind: old_batch_ind+self.cfg.micro_batch_size].to(self.cfg.policy_device)
+                with torch.inference_mode():
+                    log_prob_res = get_response_log_probs(
+                        self.policy_model,
+                        state_ids_batch,
+                        action_ids_batch,
+                        return_token_entropy=False
+                    )
+                    old_policy_probs_list.append(log_prob_res["log_probs"])
+            old_log_policy_probs = torch.cat(old_policy_probs_list, dim=0)
+        else:
+            old_log_policy_probs = None
+
+        # Policy update steps
+        self.policy_model.train()
+
+        grad_accumulation_steps = self.cfg.train_batch_size // self.cfg.micro_batch_size
+        n_train_steps_per_epoch = self.cfg.rollout_batch_size // self.cfg.micro_batch_size
+
+        self.optimizer.zero_grad()
+        for epoch in range(self.cfg.epochs_per_rollout_batch):
+            for step in range(n_train_steps_per_epoch):
+                batch_start_ind = step * self.cfg.micro_batch_size
+                batch_end_ind = batch_start_ind + self.cfg.micro_batch_size
+
+                state_ids_batch = state_ids[batch_start_ind: batch_end_ind].to(self.cfg.policy_device)
+                action_ids_batch = action_ids[batch_start_ind: batch_end_ind].to(self.cfg.policy_device)
+                response_masks_batch = response_masks[batch_start_ind: batch_end_ind].to(self.cfg.policy_device)
+
                # Compute policy_log_probs
                 log_prob_res = get_response_log_probs(
                     self.policy_model,
-                    input_ids=state_ids,
-                    labels=action_ids,
+                    input_ids=state_ids_batch,
+                    labels=action_ids_batch,
                     return_token_entropy=True
                 )
-                policy_log_probs = log_prob_res["log_probs"]
+                policy_log_probs_batch = log_prob_res["log_probs"]
                 token_entropy = log_prob_res["token_entropy"] 
 
                 #  GRPO micro train step
+                if old_log_policy_probs is not None:
+                    old_log_probs_batch = old_log_policy_probs[batch_start_ind: batch_end_ind]
+                else:
+                    old_log_probs_batch = None
                 loss, meta_data = grpo_microbatch_train_step(
-                    policy_log_probs=policy_log_probs,
-                    response_mask=response_masks,
-                    gradient_accumulation_steps=grad_accumlation_steps,
+                    policy_log_probs=policy_log_probs_batch,
+                    response_mask=response_masks_batch,
+                    gradient_accumulation_steps=grad_accumulation_steps,
                     loss_type=self.cfg.loss_type,
-                    raw_rewards=
+                    raw_rewards=raw_rewards[batch_start_ind: batch_end_ind],
+                    advantages=advantages[batch_start_ind: batch_end_ind],
+                    old_log_probs=old_log_probs_batch,
+                    cliprange=self.cfg.clip_range
                 )
+
+                # Optimizer step
+                if (step + 1) % grad_accumulation_steps == 0:
+                    # Gradient clipping
+                    nn.utils.clip_grad_norm_(self.policy_model.parameters(), max_norm=self.cfg.max_grad_norm)
+                    # Makes step
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+
 
 
 if __name__ == "__main__":
