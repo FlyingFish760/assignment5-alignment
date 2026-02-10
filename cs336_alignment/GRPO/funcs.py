@@ -1,9 +1,11 @@
 from collections.abc import Callable
-from typing import Dict, List, Tuple, Literal, Optional
+from curses import meta
+from typing import Dict, List, Tuple, Literal, Optional, Iterator
 from unittest.mock import patch
 
 import math
 import torch
+from torch.nn import Parameter
 from vllm import LLM, SamplingParams
 from vllm.model_executor import set_random_seed as vllm_set_random_seed
 from einops import repeat
@@ -57,15 +59,15 @@ def compute_group_normalized_rewards(
         ]
     """
     # Compute raw rewards for each rollout
-    rewards = []
+    rewards_list = []
     for rollout, gt in zip(rollout_responses, repeated_ground_truths):
         res = reward_fn(rollout, gt)
-        rewards.append(res["reward"])
+        rewards_list.append(res["reward"])
 
     # Compute group-normalized rewards (advantages)
-    advantages = []
-    for i in range(0, len(rewards), group_size):
-        group = rewards[i: i+group_size]
+    advantages_list = []
+    for i in range(0, len(rewards_list), group_size):
+        group = rewards_list[i: i+group_size]
         group_mean = sum(group) / len(group)
         group_std = math.sqrt(sum((x - group_mean) ** 2 for x in group) / (group_size - 1))
         for j in range(group_size):
@@ -73,7 +75,10 @@ def compute_group_normalized_rewards(
                 adv = (group[j] - group_mean) / (group_std + advantage_eps)
             else:
                 adv = (group[j] - group_mean)
-            advantages.append(adv)
+            advantages_list.append(adv)
+
+    rewards = torch.tensor(rewards_list)
+    advantages = torch.tensor(advantages_list)
 
     metadata = {}
     return (advantages, rewards, metadata)
@@ -134,9 +139,13 @@ def compute_grpo_clip_loss(
 
     prob_ratio = torch.exp(policy_log_probs - old_log_probs)
     clipped_ratio = torch.clamp(prob_ratio, 1 - cliprange, 1 + cliprange)
+    left_hand_side = prob_ratio * repeated_advs
+    right_hand_side = clipped_ratio * repeated_advs
 
-    loss = -torch.min(prob_ratio * repeated_advs, clipped_ratio * repeated_advs)
-    metadata = {}
+    loss = -torch.min(left_hand_side, right_hand_side)
+
+    was_clipped = right_hand_side < left_hand_side
+    metadata = {"was_clipped": was_clipped}
     
     return (loss, metadata)
 
@@ -184,14 +193,15 @@ def compute_policy_gradient_loss(
     assert loss_type in ["no_baseline", "reinforce_with_baseline", "grpo_clip"], \
         f"Unknown loss type of {loss_type!r}"
 
+    metadata = {}
+
     if loss_type == "no_baseline":
         if raw_rewards == None:
             raise ValueError("raw_rewards is required for 'no_baseline' loss.")
         loss = compute_naive_policy_gradient_loss(
             raw_rewards,
             policy_log_probs
-        )
-        metadata = {}
+        )  
 
     elif loss_type == "reinforce_with_baseline":
         if advantages == None:
@@ -200,7 +210,6 @@ def compute_policy_gradient_loss(
             advantages,
             policy_log_probs
         )
-        metadata = {}
 
     else:
         if advantages == None:
@@ -209,12 +218,17 @@ def compute_policy_gradient_loss(
             raise ValueError("old_log_probs is required for 'reinforce_with_baseline' loss.")
         if cliprange == None:
             raise ValueError("cliprange is required for 'reinforce_with_baseline' loss.")
-        loss, metadata = compute_grpo_clip_loss(
+        
+        loss, metadata_clip_loss = compute_grpo_clip_loss(
             advantages,
             policy_log_probs,
             old_log_probs,
             cliprange
         )
+
+        clip_fraction = metadata_clip_loss["was_clipped"].float().mean().item()
+        metadata["clip_frac"] = clip_fraction
+    
 
     return (loss, metadata)
 
@@ -285,8 +299,10 @@ def grpo_microbatch_train_step(
             metadata: Dict with metadata from the underlying loss call, and any other statistics you
                 might want to log.
     """
+    metadata = {}
+
     # Compute loss -> (b, seq_len)
-    loss, metadata = compute_policy_gradient_loss(
+    loss, metadata_policy_loss = compute_policy_gradient_loss(
         policy_log_probs,
         loss_type,
         raw_rewards,
@@ -301,6 +317,9 @@ def grpo_microbatch_train_step(
     # Average over batch, take into account gradient accumlation, .backward()
     loss_final = torch.mean(loss_per_sample) / gradient_accumulation_steps
     loss_final.backward()
+
+    if loss_type == "grpo_clip":
+        metadata.update(metadata_policy_loss)
 
     return (loss_final, metadata)
 
@@ -379,10 +398,25 @@ def evaluate_vllm(
         answer_score += ans_score
         reward_score += r_score
 
+    # eval_metrics = {
+    #     "format_accuracy": format_score / num_samples,
+    #     "answer_accuracy": answer_score / num_samples,
+    #     "reward_accuracy": reward_score / num_samples
+    # }
+
     eval_metrics = {
-        "format_accuracy": format_score / num_samples,
-        "answer_accuracy": answer_score / num_samples,
-        "reward_accuracy": reward_score / num_samples
+        "format_accuracy": format_score,
+        "answer_accuracy": answer_score,
+        "reward_accuracy": reward_score
     }
 
     return eval_metrics, records
+
+def get_grad_l2_norm(params: Iterator[Parameter]) -> float:
+    total_norm = 0
+    for p in params:
+        if p.requires_grad:
+            p_norm = p.grad.detach().norm(2) 
+            total_norm += p_norm.item() ** 2
+
+    return total_norm ** (1 / 2)

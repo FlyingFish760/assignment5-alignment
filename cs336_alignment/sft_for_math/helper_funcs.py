@@ -134,9 +134,18 @@ def get_response_log_probs(
     # Compute next token log-probability
     logits = model(input_ids).logits
 
-    p = torch.nn.functional.softmax(logits, dim=-1)   # (b, n, vocab_size)
-    p_label = torch.gather(p, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)    # (b, n)
-    log_probs = torch.log(p_label)
+    # p = torch.nn.functional.softmax(logits, dim=-1)   # (b, n, vocab_size)
+    # p_label = torch.gather(p, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)    # (b, n)
+    # log_probs = torch.log(p_label)
+
+    # res["log_probs"] = log_probs
+    
+    # Calculate log_softmax instead of full softmax + log
+    # This is more numerically stable and allows for potential memory optimizations
+    log_p = torch.nn.functional.log_softmax(logits, dim=-1)
+
+    # Gather only the log_probs for the specific labels
+    log_probs = torch.gather(log_p, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)
 
     res["log_probs"] = log_probs
 

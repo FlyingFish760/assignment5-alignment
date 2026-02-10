@@ -1,0 +1,5 @@
+grpo:
+  loss_type: grpo_clip
+  rollout_batch_size: 256
+  epochs_per_rollout_batch: 2
+  train_batch_size: 128 
