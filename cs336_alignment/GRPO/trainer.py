@@ -377,7 +377,9 @@ class GRPOTrainer:
                     raw_rewards=raw_rewards_batch,
                     advantages=advantages_batch,
                     old_log_probs=old_log_probs_batch,
-                    cliprange=self.cfg.grpo.clip_range
+                    cliprange=self.cfg.grpo.clip_range,
+                    norm_type=self.cfg.grpo.loss_norm_type,
+                    norm_const=self.cfg.sampling.sampling_max_tokens
                 )
 
                 # Log policy loss and clip fraction (if using grpo_clip loss)

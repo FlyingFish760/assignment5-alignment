@@ -10,7 +10,7 @@ from vllm import LLM, SamplingParams
 from vllm.model_executor import set_random_seed as vllm_set_random_seed
 from einops import repeat
 
-# from cs336_alignment.GRPO.utils import 
+from cs336_alignment.sft_for_math.helper_funcs import masked_normalize
 
 def compute_group_normalized_rewards(
     reward_fn: Callable[[str, str], Dict[str, float]],
@@ -265,6 +265,8 @@ def grpo_microbatch_train_step(
     advantages: torch.Tensor | None = None,
     old_log_probs: torch.Tensor | None = None,
     cliprange: float | None = None,
+    norm_type: Literal["maksed_mean", "maksed_norm"] = "maksed_mean",
+    norm_const: float = 1
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     """
     Execute a forward-and-backward pass on a microbatch.
@@ -299,6 +301,8 @@ def grpo_microbatch_train_step(
             metadata: Dict with metadata from the underlying loss call, and any other statistics you
                 might want to log.
     """
+    assert norm_type in ["maksed_mean", "maksed_norm"], f"norm type {norm_type} must be 'maksed_mean'/ 'maksed_norm"
+
     metadata = {}
 
     # Compute loss -> (b, seq_len)
@@ -311,11 +315,14 @@ def grpo_microbatch_train_step(
         cliprange
     )
 
-    # Compute masked_mean loss to get per-sample loss -> (b,)
-    loss_per_sample = masked_mean(loss, response_mask, dim=-1)
+    # Apply mask and normalization to the loss -> (b,)
+    if norm_type == "maksed_mean":
+        loss_normed = masked_mean(loss, response_mask, dim=-1)
+    elif norm_type == "maksed_norm":
+        loss_normed = masked_normalize(loss, response_mask, normalize_constant=norm_const, dim=-1)
 
     # Average over batch, take into account gradient accumlation, .backward()
-    loss_final = torch.mean(loss_per_sample) / gradient_accumulation_steps
+    loss_final = torch.mean(loss_normed) / gradient_accumulation_steps
     loss_final.backward()
 
     if loss_type == "grpo_clip":

@@ -44,6 +44,7 @@ class GRPOConfig:
     use_std_normalization: bool = True
 
     loss_type: str = "reinforce_with_baseline"   # Literal["no_baseline","reinforce_with_baseline","grpo_clip"]
+    loss_norm_type: str = "masked_mean"
 
     clip_range: float = 0.2
 
