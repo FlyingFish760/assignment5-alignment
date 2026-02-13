@@ -67,6 +67,7 @@ class WandbConfig:
     use_wandb: bool = True
     wandb_team: str = "cs336_assign5"
     wandb_project: str = "GRPO"
+    wandb_name: str = "test"
 
 
 @dataclass

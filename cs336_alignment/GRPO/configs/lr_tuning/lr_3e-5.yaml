@@ -1,0 +1,10 @@
+optim:
+  lr: 3e-5
+
+wandb:
+  wandb_project: GRPO_lr
+  wandb_name: lr_3e-5
+
+eval:
+  eval_batch_size: 2048
+  eval_grpo_steps: 10

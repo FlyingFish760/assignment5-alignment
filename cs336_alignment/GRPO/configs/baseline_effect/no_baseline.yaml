@@ -1,0 +1,6 @@
+grpo:
+  loss_type: no_baseline
+
+wandb:
+  wandb_project: GRPO_baseline_effect
+  wandb_name: no_baseline

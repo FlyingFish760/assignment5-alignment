@@ -42,13 +42,15 @@ class GRPOTrainer:
                  reward_func: Callable,
                  question_dataset: List[Dict[str, str]],
                  tokenizer: PreTrainedTokenizer,
-                 cfg: ExperimentConfig):
+                 cfg: ExperimentConfig,
+                 start_time):
         self.cfg = cfg
         self.policy_model = policy_model
         self.rollout_model = rollout_model
         self.reward_func = reward_func
         self.question_dataset = question_dataset
         self.tokenizer = tokenizer
+        self.start_time = start_time
 
         # Init full evaluation dataset
         with open(self.cfg.data.val_data_path, "r", encoding="utf-8") as f:
@@ -77,10 +79,11 @@ class GRPOTrainer:
             loss_type = grpo_config.loss_type
             clip_range = grpo_config.clip_range
 
+            wandb_run_name = self.cfg.wandb.wandb_name
             self.wandb_run = wandb.init(
                 entity=self.cfg.wandb.wandb_team,
                 project=self.cfg.wandb.wandb_project,
-                name=f"{loss_type}/ grpo_steps.{n_grpo_steps}/ rollout_bs.{rollout_batch_size}/ train_bs.{train_batch_size}",
+                name=wandb_run_name if wandb_run_name is not None else f"{loss_type}/ grpo_steps.{n_grpo_steps}/ rollout_bs.{rollout_batch_size}/ train_bs.{train_batch_size}",
                 config={
                     "n_grpo_steps": n_grpo_steps,
                     "rollout_batch_size": rollout_batch_size,
@@ -180,20 +183,6 @@ class GRPOTrainer:
         reward = eval_metrics["reward_accuracy"]
 
         return (format_reward, answer_reward, reward)
-    
-    def log_grad_norm(self, step, cur_step, epoch):
-        grad_norm = get_grad_l2_norm(self.policy_model.parameters())
-        total_epochs = self.cfg.grpo.epochs_per_rollout_batch
-        n_train_steps_per_epoch = self.cfg.grpo.rollout_batch_size // self.cfg.grpo.micro_batch_size
-        logger_info = f"[Epoch:{epoch+1}/{total_epochs}](Step: {step + 1}/{n_train_steps_per_epoch}), grad_norm: {grad_norm:.4f}"
-        logger(logger_info)
-
-        if self.use_wandb:
-            wandb_log = {
-                "train_step": cur_step,
-                "train/grad_norm": grad_norm
-            }
-            self.wandb_run.log(wandb_log)
 
     def evaluate_model(self, grpo_step):
         # Sample a batch of evaluation questions
@@ -208,7 +197,8 @@ class GRPOTrainer:
         format_acc = format_reward / num_eval_questions
         answer_acc = answer_reward / num_eval_questions
         reward_acc = reward / num_eval_questions
-        logger_info = f"[GRPO_STEP:{grpo_step+1}/{self.cfg.grpo.n_grpo_steps}], format_reward: {format_reward}/{num_eval_questions}({format_acc}), answer_reward: {answer_reward}/{num_eval_questions}({answer_acc}), reward: {reward}/{num_eval_questions}({reward_acc})"
+        spent_time = (time.time() - self.start_time) // 60
+        logger_info = f"[GRPO_STEP:{grpo_step+1}/{self.cfg.grpo.n_grpo_steps}], format_reward: {format_reward}/{num_eval_questions}({format_acc}), answer_reward: {answer_reward}/{num_eval_questions}({answer_acc}), reward: {reward}/{num_eval_questions}({reward_acc}), spent_time: {spent_time} min"
         logger(logger_info)
 
         if self.use_wandb:
@@ -216,7 +206,22 @@ class GRPOTrainer:
                 "eval_grpo_step": grpo_step + 1,
                 "eval/format_accuracy": format_acc,
                 "eval/answer_accuracy": answer_acc,
-                "eval/reward_accuracy": reward_acc
+                "eval/reward_accuracy": reward_acc,
+                "eval/spent_time(min)": spent_time
+            }
+            self.wandb_run.log(wandb_log)
+
+    def log_grad_norm(self, step, cur_step, epoch):
+        grad_norm = get_grad_l2_norm(self.policy_model.parameters())
+        total_epochs = self.cfg.grpo.epochs_per_rollout_batch
+        n_train_steps_per_epoch = self.cfg.grpo.rollout_batch_size // self.cfg.grpo.micro_batch_size
+        logger_info = f"[Epoch:{epoch+1}/{total_epochs}](Step: {step + 1}/{n_train_steps_per_epoch}), grad_norm: {grad_norm:.4f}"
+        logger(logger_info)
+
+        if self.use_wandb:
+            wandb_log = {
+                "train_step": cur_step,
+                "train/grad_norm": grad_norm
             }
             self.wandb_run.log(wandb_log)
 
@@ -255,7 +260,7 @@ class GRPOTrainer:
         
 
         # Compute raw reward/ group-normalized advantages
-        raw_rewards, advantages, reward_metadata = compute_group_normalized_rewards(
+        advantages, raw_rewards, reward_metadata = compute_group_normalized_rewards(
             self.reward_func,
             rollout_responses,
             rollout_answers,
@@ -301,7 +306,6 @@ class GRPOTrainer:
         n_train_steps_per_grpo_step = n_train_steps_per_epoch * self.cfg.grpo.epochs_per_rollout_batch
 
         self.optimizer.zero_grad()
-        start_time = time.time()
         for epoch in range(self.cfg.grpo.epochs_per_rollout_batch):
             for step in range(n_train_steps_per_epoch):
                 # The step (for logging) is based on the whole grpo process
@@ -348,7 +352,7 @@ class GRPOTrainer:
                     total_epochs = self.cfg.grpo.epochs_per_rollout_batch
                     train_loss = loss.item() * grad_accumulation_steps
                     per_token_entropy = torch.mean(token_entropy).item()
-                    spent_time = (time.time() - start_time) // 60
+                    spent_time = (time.time() - self.start_time) // 60
                     logger_info = f"[Epoch:{epoch+1}/{total_epochs}](Step: {step + 1}/{n_train_steps_per_epoch}), train_loss: {train_loss:.4e}, token_entropy: {per_token_entropy:.4f}, spent time: {spent_time}min"
                     if loss_type == "grpo_clip":
                         logger_info += f", clip_fraction:{meta_data["clip_frac"]:.4f}"
@@ -383,8 +387,7 @@ class GRPOTrainer:
             format_acc = format_reward / num_sample_questions
             answer_acc = answer_reward / num_sample_questions
             reward_acc = reward / num_sample_questions
-            spent_time = (time.time() - start_time) // 60
-            logger_info = f"[Epoch:{epoch+1}/{total_epochs}], format_reward: {format_reward}/{num_sample_questions}({format_acc}), answer_reward: {answer_reward}/{num_sample_questions}({answer_acc}), reward: {reward}/{num_sample_questions}({reward_acc}), spent time: {spent_time}min"
+            logger_info = f"[Epoch:{epoch+1}/{total_epochs}], format_reward: {format_reward}/{num_sample_questions}({format_acc}), answer_reward: {answer_reward}/{num_sample_questions}({answer_acc}), reward: {reward}/{num_sample_questions}({reward_acc})"
             logger(logger_info)
 
             if self.use_wandb:
@@ -392,8 +395,7 @@ class GRPOTrainer:
                     "train_step": cur_step,
                     "train/format_accuracy": format_acc,
                     "train/answer_accuracy": answer_acc,
-                    "train/reward_accuracy": reward_acc,
-                    "train/spent time (min)": spent_time
+                    "train/reward_accuracy": reward_acc
                 }
                 self.wandb_run.log(wandb_log)
 

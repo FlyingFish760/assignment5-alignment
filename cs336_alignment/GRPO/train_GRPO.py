@@ -1,6 +1,7 @@
 import json
 import random
 import argparse
+import time
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
@@ -86,15 +87,18 @@ if __name__ == "__main__":
         question_dataset = json.load(f)
 
     #--------------Training---------------
+    start_time = time.time()
     grpo_trainer = GRPOTrainer(
         policy_model,
         rollout_model,
         reward_func,
         question_dataset,
         tokenizer=tokenizer,
-        cfg=cfg
+        cfg=cfg,
+        start_time=start_time
     )
 
+    start_time = time.time()
     for grpo_step in range(cfg.grpo.n_grpo_steps):
         print(f"---------------- Started {grpo_step+1} GRPO train steps ----------------")
         grpo_trainer.train_step(grpo_step)

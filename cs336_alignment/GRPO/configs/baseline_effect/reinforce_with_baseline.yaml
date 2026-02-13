@@ -1,0 +1,6 @@
+grpo:
+  loss_type: reinforce_with_baseline
+
+wandb:
+  wandb_project: GRPO_baseline_effect
+  wandb_name: reinforce_with_baseline
