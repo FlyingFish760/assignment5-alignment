@@ -265,7 +265,7 @@ def grpo_microbatch_train_step(
     advantages: torch.Tensor | None = None,
     old_log_probs: torch.Tensor | None = None,
     cliprange: float | None = None,
-    norm_type: Literal["maksed_mean", "maksed_norm"] = "maksed_mean",
+    norm_type: Literal["masked_mean", "masked_norm"] = "masked_mean",
     norm_const: float = 1
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     """
@@ -301,7 +301,7 @@ def grpo_microbatch_train_step(
             metadata: Dict with metadata from the underlying loss call, and any other statistics you
                 might want to log.
     """
-    assert norm_type in ["maksed_mean", "maksed_norm"], f"norm type {norm_type} must be 'maksed_mean'/ 'maksed_norm"
+    assert norm_type in ["masked_mean", "masked_norm"], f"norm type {norm_type} must be 'masked_mean'/ 'masked_norm"
 
     metadata = {}
 
@@ -316,9 +316,9 @@ def grpo_microbatch_train_step(
     )
 
     # Apply mask and normalization to the loss -> (b,)
-    if norm_type == "maksed_mean":
+    if norm_type == "masked_mean":
         loss_normed = masked_mean(loss, response_mask, dim=-1)
-    elif norm_type == "maksed_norm":
+    elif norm_type == "masked_norm":
         loss_normed = masked_normalize(loss, response_mask, normalize_constant=norm_const, dim=-1)
 
     # Average over batch, take into account gradient accumlation, .backward()

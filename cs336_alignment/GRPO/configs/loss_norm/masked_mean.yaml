@@ -1,0 +1,6 @@
+grpo:
+  loss_norm_type: masked_mean
+
+wandb:
+  wandb_project: GRPO_loss_norm
+  wandb_name: masked_mean
