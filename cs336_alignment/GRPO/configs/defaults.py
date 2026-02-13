@@ -24,7 +24,7 @@ class SamplingConfig:
 
 @dataclass
 class OptimConfig:
-    lr: float = 1e-5
+    lr: float = 3e-5
     weight_decay: float = 0.0
     betas: Tuple[float, float] = (0.9, 0.95)
     max_grad_norm: float = 1.0
