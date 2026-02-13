@@ -48,6 +48,7 @@ class GRPOConfig:
     clip_range: float = 0.2
 
     log_loss_steps: int = 8   # Better to be divisible by the train_steps per epoch
+    response_batch_size: int = 128   # Batch size of the question set for testing response lengths
 
 
 @dataclass

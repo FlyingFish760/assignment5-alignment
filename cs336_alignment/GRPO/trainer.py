@@ -11,6 +11,7 @@ import torch.nn as nn
 from vllm import LLM, SamplingParams
 from transformers import PreTrainedModel, PreTrainedTokenizer
 import wandb
+import numpy as np
 
 from GRPO.funcs import compute_group_normalized_rewards, grpo_microbatch_train_step, evaluate_vllm, get_grad_l2_norm
 from sft_for_math.helper_funcs import tokenize_prompt_and_output, get_response_log_probs
@@ -55,6 +56,20 @@ class GRPOTrainer:
         # Init full evaluation dataset
         with open(self.cfg.data.val_data_path, "r", encoding="utf-8") as f:
             self.eval_dataset = json.load(f)
+
+        # Init a response_len testing prompt set
+        response_test_dataset = self.sample_batch_question(
+            batch_size=self.cfg.grpo.response_batch_size,
+            question_set=self.eval_dataset
+        )
+        # format each example as a string prompt for the language model using the r1_zero prompt
+        self.response_test_prompts = []
+        prompt_template = Path(self.cfg.data.prompt_temp_path).read_text(encoding="utf-8")
+        for sample in response_test_dataset:
+            formatted_p = prompt_template.format(
+                question = sample["problem"]
+            )
+            self.response_test_prompts.append(formatted_p)
 
         # Init optimizer
         self.optimizer = AdamW(
@@ -161,8 +176,6 @@ class GRPOTrainer:
         return rollouts
 
     def evaluate_reward(self, question_set: List[Dict[str, str]]):
-        self.load_policy_into_vllm_instance(self.policy_model, self.rollout_model)
-
         sampling_params = SamplingParams(
             temperature=self.cfg.sampling.sampling_temperature, 
             max_tokens=self.cfg.sampling.sampling_max_tokens, 
@@ -225,6 +238,26 @@ class GRPOTrainer:
             }
             self.wandb_run.log(wandb_log)
 
+    def get_response_length_statistics(self):
+        sampling_params = SamplingParams(
+            temperature=self.cfg.sampling.sampling_temperature, 
+            max_tokens=self.cfg.sampling.sampling_max_tokens, 
+            stop=self.cfg.sampling.sampling_stop, 
+            include_stop_str_in_output=self.cfg.sampling.include_stop_str_in_output
+        )
+
+        # generate model outputs for each example
+        outputs = self.rollout_model.generate(self.response_test_prompts, sampling_params)
+
+        # Compute statistics of reponse lengths (mean, std)
+        response_lens = []
+        for output in outputs:
+            response_lens.append(len(output.outputs[0].text))
+
+        response_len_mean = np.mean(response_lens)
+        response_len_std = np.std(response_lens)
+        return response_len_mean, response_len_std
+
     def train_step(self, grpo_step):
         # Sample a batch of questions
         num_sample_questions = self.cfg.grpo.rollout_batch_size // self.cfg.grpo.group_size
@@ -257,7 +290,6 @@ class GRPOTrainer:
             rollout_prompts.append(r["prompt"])
             rollout_responses.append(r["response"])
             rollout_answers.append(r["answer"])
-        
 
         # Compute raw reward/ group-normalized advantages
         advantages, raw_rewards, reward_metadata = compute_group_normalized_rewards(
@@ -306,6 +338,7 @@ class GRPOTrainer:
         n_train_steps_per_grpo_step = n_train_steps_per_epoch * self.cfg.grpo.epochs_per_rollout_batch
 
         self.optimizer.zero_grad()
+        accumulated_token_entropy = 0
         for epoch in range(self.cfg.grpo.epochs_per_rollout_batch):
             for step in range(n_train_steps_per_epoch):
                 # The step (for logging) is based on the whole grpo process
@@ -327,6 +360,7 @@ class GRPOTrainer:
                 )
                 policy_log_probs_batch = log_prob_res["log_probs"]
                 token_entropy = log_prob_res["token_entropy"] 
+                accumulated_token_entropy += token_entropy.mean().item()
 
                 #  GRPO micro train step
                 if old_log_policy_probs is not None:
@@ -351,9 +385,9 @@ class GRPOTrainer:
                 if  cur_step % self.cfg.grpo.log_loss_steps == 0:
                     total_epochs = self.cfg.grpo.epochs_per_rollout_batch
                     train_loss = loss.item() * grad_accumulation_steps
-                    per_token_entropy = torch.mean(token_entropy).item()
+                    
                     spent_time = (time.time() - self.start_time) // 60
-                    logger_info = f"[Epoch:{epoch+1}/{total_epochs}](Step: {step + 1}/{n_train_steps_per_epoch}), train_loss: {train_loss:.4e}, token_entropy: {per_token_entropy:.4f}, spent time: {spent_time}min"
+                    logger_info = f"[Epoch:{epoch+1}/{total_epochs}](Step: {step + 1}/{n_train_steps_per_epoch}), train_loss: {train_loss:.4e}, spent time: {spent_time}min"
                     if loss_type == "grpo_clip":
                         logger_info += f", clip_fraction:{meta_data["clip_frac"]:.4f}"
                     logger(logger_info)
@@ -362,7 +396,6 @@ class GRPOTrainer:
                         wandb_log = {
                             "train_step": cur_step,
                             "train/loss": train_loss,
-                            "train/token_entropy": per_token_entropy,
                             "train/spent time (min)": spent_time
                         }
                         if loss_type == "grpo_clip":
@@ -370,38 +403,54 @@ class GRPOTrainer:
                         
                         self.wandb_run.log(wandb_log)
 
-                # Optimizer step
+                # Gradient update step
                 if (step + 1) % grad_accumulation_steps == 0:
                     # log (l2) grad norm (before gradient clipping)
                     self.log_grad_norm(step, cur_step, epoch)
+
+                    # log avergage token entropy
+                    avg_token_entropy = accumulated_token_entropy / grad_accumulation_steps
+                    if self.use_wandb:
+                        wandb_log = {
+                            "train_step": cur_step,
+                            "train/average_token_entropy": avg_token_entropy
+                        }
+                        self.wandb_run.log(wandb_log)
 
                     # Gradient clipping
                     nn.utils.clip_grad_norm_(self.policy_model.parameters(), max_norm=self.cfg.optim.max_grad_norm)
                     # Makes step
                     self.optimizer.step()
                     self.optimizer.zero_grad()
+                    # Load the policy model weights into the vllm model 
+                    self.load_policy_into_vllm_instance(self.policy_model, self.rollout_model)
 
-            # Log train_reward per train epoch
-            format_reward, answer_reward, reward = self.evaluate_reward(sample_questions)
-            total_epochs = self.cfg.grpo.epochs_per_rollout_batch
-            format_acc = format_reward / num_sample_questions
-            answer_acc = answer_reward / num_sample_questions
-            reward_acc = reward / num_sample_questions
-            logger_info = f"[Epoch:{epoch+1}/{total_epochs}], format_reward: {format_reward}/{num_sample_questions}({format_acc}), answer_reward: {answer_reward}/{num_sample_questions}({answer_acc}), reward: {reward}/{num_sample_questions}({reward_acc})"
-            logger(logger_info)
+                    # Log train_reward, response length per train batch
+                    format_reward, answer_reward, reward = self.evaluate_reward(sample_questions)
+                    total_epochs = self.cfg.grpo.epochs_per_rollout_batch
+                    format_acc = format_reward / num_sample_questions
+                    answer_acc = answer_reward / num_sample_questions
+                    reward_acc = reward / num_sample_questions
+                    logger_info = f"[Epoch:{epoch+1}/{total_epochs}], format_reward: {format_reward}/{num_sample_questions}({format_acc}), answer_reward: {answer_reward}/{num_sample_questions}({answer_acc}), reward: {reward}/{num_sample_questions}({reward_acc})"
+                    logger(logger_info)
 
-            if self.use_wandb:
-                wandb_log = {
-                    "train_step": cur_step,
-                    "train/format_accuracy": format_acc,
-                    "train/answer_accuracy": answer_acc,
-                    "train/reward_accuracy": reward_acc
-                }
-                self.wandb_run.log(wandb_log)
+                    response_len_mean, response_len_std = self.get_response_length_statistics()
+
+                    if self.use_wandb:
+                        wandb_log = {
+                            "train_step": cur_step,
+                            "train/format_accuracy": format_acc,
+                            "train/answer_accuracy": answer_acc,
+                            "train/reward_accuracy": reward_acc,
+                            "train/response_len_mean": response_len_mean,
+                            "train/response_len_std": response_len_std
+                        }
+                        self.wandb_run.log(wandb_log)
 
 
 if __name__ == "__main__":
-    grpo_trainer = GRPOTrainer()
+    pass
+    # grpo_trainer = GRPOTrainer()
 
     # # Test sample_batch_question()
     # test_ds = [1, 2, 3, 4, 5]
