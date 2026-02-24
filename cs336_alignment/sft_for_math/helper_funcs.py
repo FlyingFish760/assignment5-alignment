@@ -92,17 +92,21 @@ def compute_entropy(logits: Float[Tensor, "batch_size sequence_length vocab_size
             A tensor of shape (batch_size, sequence_length) containing
             the entropy of the next-token prediction at each position.
     """
-    # Compute logsumexp of logits
-    lg_Z = torch.logsumexp(logits, dim=-1)   # (b, n)
+    # # Compute logsumexp of logits
+    # lg_Z = torch.logsumexp(logits, dim=-1)   # (b, n)
 
-    # Compute log_p
-    lg_p = logits - lg_Z.unsqueeze(-1)   # (b, n, vocab_size)
+    # # Compute log_p
+    # lg_p = logits - lg_Z.unsqueeze(-1)   # (b, n, vocab_size)
 
-    # Compute p
-    p = torch.exp(lg_p)   # (b, n, vocab_size)
+    # # Compute p
+    # p = torch.exp(lg_p)   # (b, n, vocab_size)
 
-    # Compute entropy
-    H = lg_Z - torch.sum(p * logits, dim=-1)   # (b, n)
+    # # Compute entropy
+    # H = lg_Z - torch.sum(p * logits, dim=-1)   # (b, n)
+
+    log_p = torch.log_softmax(logits, dim=-1)
+    p = torch.exp(log_p)
+    H = -torch.sum(p * log_p, dim=-1)
 
     return H
 

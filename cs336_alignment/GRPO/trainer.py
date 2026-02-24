@@ -339,6 +339,7 @@ class GRPOTrainer:
 
         self.optimizer.zero_grad()
         accumulated_token_entropy = 0
+        accumulated_num_tokens = 0
         for epoch in range(self.cfg.grpo.epochs_per_rollout_batch):
             for step in range(n_train_steps_per_epoch):
                 # The step (for logging) is based on the whole grpo process
@@ -360,7 +361,9 @@ class GRPOTrainer:
                 )
                 policy_log_probs_batch = log_prob_res["log_probs"]
                 token_entropy = log_prob_res["token_entropy"] 
-                accumulated_token_entropy += token_entropy.mean().item()
+                masked_token_entropy = token_entropy * response_masks_batch
+                accumulated_token_entropy += masked_token_entropy.sum().item()
+                accumulated_num_tokens += response_masks_batch.sum().item()
 
                 #  GRPO micro train step
                 if old_log_policy_probs is not None:
@@ -411,13 +414,15 @@ class GRPOTrainer:
                     self.log_grad_norm(step, cur_step, epoch)
 
                     # log avergage token entropy
-                    avg_token_entropy = accumulated_token_entropy / grad_accumulation_steps
+                    avg_token_entropy = accumulated_token_entropy / accumulated_num_tokens
                     if self.use_wandb:
                         wandb_log = {
                             "train_step": cur_step,
                             "train/average_token_entropy": avg_token_entropy
                         }
                         self.wandb_run.log(wandb_log)
+                    accumulated_token_entropy = 0
+                    accumulated_num_tokens = 0
 
                     # Gradient clipping
                     nn.utils.clip_grad_norm_(self.policy_model.parameters(), max_norm=self.cfg.optim.max_grad_norm)
