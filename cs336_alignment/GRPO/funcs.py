@@ -10,7 +10,7 @@ from vllm import LLM, SamplingParams
 from vllm.model_executor import set_random_seed as vllm_set_random_seed
 from einops import repeat
 
-from ..sft_for_math.helper_funcs import masked_normalize
+from sft_for_math.helper_funcs import masked_normalize
 
 def compute_group_normalized_rewards(
     reward_fn: Callable[[str, str], Dict[str, float]],
