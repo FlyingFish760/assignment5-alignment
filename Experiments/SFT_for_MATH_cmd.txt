@@ -1,0 +1,1 @@
+root@autodl-container-a88f4a8a56-4f6fbaff:~/autodl-tmp/assignment5-alignment/cs336_alignment# uv run python -m sft_for_math.trainer --config sft_for_math/config/base.yaml --prompt_temp_path ./prompts/r1_zero.prompt --train_data_path sft_for_math/data/sft_train.jsonl --val_data_path sft_for_math/data/val.jsonl

@@ -1,0 +1,208 @@
+uv run python -m EI.trainer --config  EI/config/config.yaml --data_path ../data/sft-cs336-assign5-datasets/sft-reason/sft_gpt-oss-120b_filtered.jsonl --val_data_path ../data/sft-cs336-assign5-datasets/sft-reason/val.jsonl --prompt_temp_path ./prompts/r1_zero.prompt
+
+[Epoch:2/3](Step: 464/1380), train_loss: 14.4375, token_entropy: 1.9062, spent time: 0.0min
+[Epoch:2/3](Step: 468/1380), train_loss: 19.2500, token_entropy: 1.9766, spent time: 0.0min
+[Epoch:2/3](Step: 472/1380), train_loss: 7.0312, token_entropy: 2.2344, spent time: 0.0min
+[Epoch:2/3](Step: 476/1380), train_loss: 15.8750, token_entropy: 1.6641, spent time: 0.0min
+[Epoch:2/3](Step: 480/1380), train_loss: 18.7500, token_entropy: 2.1719, spent time: 0.0min
+[Epoch:2/3](Step: 484/1380), train_loss: 11.9375, token_entropy: 1.7578, spent time: 0.0min
+[Epoch:2/3](Step: 488/1380), train_loss: 16.5000, token_entropy: 1.6172, spent time: 0.0min
+[Epoch:2/3](Step: 492/1380), train_loss: 14.3125, token_entropy: 1.8750, spent time: 0.0min
+[Epoch:2/3](Step: 496/1380), train_loss: 11.8750, token_entropy: 2.0625, spent time: 0.0min
+[Epoch:2/3](Step: 500/1380), train_loss: 12.7500, token_entropy: 1.8125, spent time: 0.0min
+[Epoch:2/3](Step: 504/1380), train_loss: 11.5000, token_entropy: 2.0156, spent time: 0.0min
+[Epoch:2/3](Step: 508/1380), train_loss: 10.3750, token_entropy: 2.1719, spent time: 0.0min
+[Epoch:2/3](Step: 512/1380), train_loss: 6.9375, token_entropy: 2.0000, spent time: 0.0min
+[Epoch:2/3](Step: 516/1380), train_loss: 20.0000, token_entropy: 1.9609, spent time: 0.0min
+[Epoch:2/3](Step: 520/1380), train_loss: 11.9375, token_entropy: 2.0312, spent time: 0.0min
+[Epoch:2/3](Step: 524/1380), train_loss: 6.9375, token_entropy: 2.0625, spent time: 0.0min
+[Epoch:2/3](Step: 528/1380), train_loss: 8.9375, token_entropy: 1.8828, spent time: 0.0min
+[Epoch:2/3](Step: 532/1380), train_loss: 7.5625, token_entropy: 1.7734, spent time: 0.0min
+[Epoch:2/3](Step: 536/1380), train_loss: 7.8125, token_entropy: 2.0781, spent time: 0.0min
+[Epoch:2/3](Step: 540/1380), train_loss: 15.6250, token_entropy: 1.9297, spent time: 0.0min
+[Epoch:2/3](Step: 544/1380), train_loss: 14.2500, token_entropy: 2.1094, spent time: 0.0min
+[Epoch:2/3](Step: 548/1380), train_loss: 20.5000, token_entropy: 1.9141, spent time: 0.0min
+[Epoch:2/3](Step: 552/1380), train_loss: 12.2500, token_entropy: 1.9141, spent time: 0.0min
+[Epoch:2/3](Step: 556/1380), train_loss: 9.0625, token_entropy: 2.0000, spent time: 0.0min
+[Epoch:2/3](Step: 560/1380), train_loss: 16.1250, token_entropy: 1.8984, spent time: 0.0min
+[Epoch:2/3](Step: 564/1380), train_loss: 8.8125, token_entropy: 2.1562, spent time: 0.0min
+[Epoch:2/3](Step: 568/1380), train_loss: 9.1875, token_entropy: 2.2188, spent time: 0.0min
+[Epoch:2/3](Step: 572/1380), train_loss: 7.1875, token_entropy: 1.9609, spent time: 0.0min
+[Epoch:2/3](Step: 576/1380), train_loss: 8.3750, token_entropy: 2.0781, spent time: 0.0min
+[Epoch:2/3](Step: 580/1380), train_loss: 23.3750, token_entropy: 1.6172, spent time: 0.0min
+[Epoch:2/3](Step: 584/1380), train_loss: 8.6250, token_entropy: 2.0156, spent time: 0.0min
+[Epoch:2/3](Step: 588/1380), train_loss: 9.2500, token_entropy: 2.0625, spent time: 0.0min
+[Epoch:2/3](Step: 592/1380), train_loss: 24.0000, token_entropy: 1.9609, spent time: 0.0min
+[Epoch:2/3](Step: 596/1380), train_loss: 14.5000, token_entropy: 1.7969, spent time: 0.0min
+[Epoch:2/3](Step: 600/1380), train_loss: 6.3125, token_entropy: 2.0469, spent time: 0.0min
+[Epoch:2/3](Step: 604/1380), train_loss: 33.0000, token_entropy: 1.8984, spent time: 0.0min
+[Epoch:2/3](Step: 608/1380), train_loss: 14.3750, token_entropy: 1.8203, spent time: 0.0min
+[Epoch:2/3](Step: 612/1380), train_loss: 4.3438, token_entropy: 2.1406, spent time: 0.0min
+[Epoch:2/3](Step: 616/1380), train_loss: 4.4062, token_entropy: 2.0625, spent time: 0.0min
+[Epoch:2/3](Step: 620/1380), train_loss: 6.6875, token_entropy: 1.8750, spent time: 0.0min
+[Epoch:2/3](Step: 624/1380), train_loss: 9.0000, token_entropy: 1.9688, spent time: 0.0min
+[Epoch:2/3](Step: 628/1380), train_loss: 3.0781, token_entropy: 1.9375, spent time: 0.0min
+[Epoch:2/3](Step: 632/1380), train_loss: 7.0000, token_entropy: 2.0625, spent time: 0.0min
+[Epoch:2/3](Step: 636/1380), train_loss: 23.1250, token_entropy: 1.6484, spent time: 0.0min
+[Epoch:2/3](Step: 640/1380), train_loss: 11.7500, token_entropy: 1.8516, spent time: 0.0min
+[Epoch:2/3](Step: 644/1380), train_loss: 14.3750, token_entropy: 1.9062, spent time: 0.0min
+[Epoch:2/3](Step: 648/1380), train_loss: 10.9375, token_entropy: 1.9141, spent time: 0.0min
+[Epoch:2/3](Step: 652/1380), train_loss: 9.3125, token_entropy: 2.2344, spent time: 0.0min
+[Epoch:2/3](Step: 656/1380), train_loss: 4.5625, token_entropy: 1.8047, spent time: 0.0min
+[Epoch:2/3](Step: 660/1380), train_loss: 8.7500, token_entropy: 1.8750, spent time: 0.0min
+[Epoch:2/3](Step: 664/1380), train_loss: 5.1250, token_entropy: 2.0938, spent time: 0.0min
+[Epoch:2/3](Step: 668/1380), train_loss: 25.7500, token_entropy: 1.9141, spent time: 0.0min
+[Epoch:2/3](Step: 672/1380), train_loss: 5.3750, token_entropy: 1.9844, spent time: 0.0min
+[Epoch:2/3](Step: 676/1380), train_loss: 11.7500, token_entropy: 1.7031, spent time: 0.0min
+[Epoch:2/3](Step: 680/1380), train_loss: 7.4062, token_entropy: 1.9766, spent time: 0.0min
+[Epoch:2/3](Step: 684/1380), train_loss: 12.5000, token_entropy: 1.8359, spent time: 0.0min
+[Epoch:2/3](Step: 688/1380), train_loss: 15.6250, token_entropy: 1.8516, spent time: 0.0min
+[Epoch:2/3](Step: 692/1380), train_loss: 7.4062, token_entropy: 1.8516, spent time: 0.0min
+[Epoch:2/3](Step: 696/1380), train_loss: 12.1250, token_entropy: 1.9531, spent time: 0.0min
+[Epoch:2/3](Step: 700/1380), train_loss: 14.1250, token_entropy: 1.9844, spent time: 0.0min
+[Epoch:2/3](Step: 704/1380), train_loss: 7.8125, token_entropy: 2.0781, spent time: 0.0min
+[Epoch:2/3](Step: 708/1380), train_loss: 3.5312, token_entropy: 2.0625, spent time: 1.0min
+[Epoch:2/3](Step: 712/1380), train_loss: 9.6250, token_entropy: 1.9062, spent time: 1.0min
+[Epoch:2/3](Step: 716/1380), train_loss: 5.7500, token_entropy: 2.0312, spent time: 1.0min
+[Epoch:2/3](Step: 720/1380), train_loss: 13.0000, token_entropy: 1.4375, spent time: 1.0min
+[Epoch:2/3](Step: 724/1380), train_loss: 9.2500, token_entropy: 1.9688, spent time: 1.0min
+[Epoch:2/3](Step: 728/1380), train_loss: 7.1875, token_entropy: 1.9453, spent time: 1.0min
+[Epoch:2/3](Step: 732/1380), train_loss: 9.3750, token_entropy: 2.0000, spent time: 1.0min
+[Epoch:2/3](Step: 736/1380), train_loss: 2.8125, token_entropy: 2.0781, spent time: 1.0min
+[Epoch:2/3](Step: 740/1380), train_loss: 7.2500, token_entropy: 1.9453, spent time: 1.0min
+[Epoch:2/3](Step: 744/1380), train_loss: 17.3750, token_entropy: 1.6094, spent time: 1.0min
+[Epoch:2/3](Step: 748/1380), train_loss: 4.4062, token_entropy: 1.9609, spent time: 1.0min
+[Epoch:2/3](Step: 752/1380), train_loss: 7.5625, token_entropy: 1.9375, spent time: 1.0min
+[Epoch:2/3](Step: 756/1380), train_loss: 9.3125, token_entropy: 1.6016, spent time: 1.0min
+[Epoch:2/3](Step: 760/1380), train_loss: 16.1250, token_entropy: 1.6328, spent time: 1.0min
+[Epoch:2/3](Step: 764/1380), train_loss: 7.6250, token_entropy: 1.8203, spent time: 1.0min
+[Epoch:2/3](Step: 768/1380), train_loss: 3.5625, token_entropy: 1.7266, spent time: 1.0min
+[Epoch:2/3](Step: 772/1380), train_loss: 7.1875, token_entropy: 1.9062, spent time: 1.0min
+[Epoch:2/3](Step: 776/1380), train_loss: 9.4375, token_entropy: 2.0000, spent time: 1.0min
+[Epoch:2/3](Step: 780/1380), train_loss: 9.5000, token_entropy: 1.8828, spent time: 1.0min
+[Epoch:2/3](Step: 784/1380), train_loss: 8.8750, token_entropy: 1.9219, spent time: 1.0min
+[Epoch:2/3](Step: 788/1380), train_loss: 7.1250, token_entropy: 2.0312, spent time: 1.0min
+[Epoch:2/3](Step: 792/1380), train_loss: 16.8750, token_entropy: 1.8984, spent time: 1.0min
+[Epoch:2/3](Step: 796/1380), train_loss: 8.5000, token_entropy: 1.7656, spent time: 1.0min
+[Epoch:2/3](Step: 800/1380), train_loss: 9.7500, token_entropy: 1.6328, spent time: 1.0min
+[Epoch:2/3](Step: 804/1380), train_loss: 10.3750, token_entropy: 1.8906, spent time: 1.0min
+[Epoch:2/3](Step: 808/1380), train_loss: 10.7500, token_entropy: 1.7891, spent time: 1.0min
+[Epoch:2/3](Step: 812/1380), train_loss: 7.5000, token_entropy: 1.8203, spent time: 1.0min
+[Epoch:2/3](Step: 816/1380), train_loss: 10.3750, token_entropy: 1.7422, spent time: 1.0min
+[Epoch:2/3](Step: 820/1380), train_loss: 5.1875, token_entropy: 1.9453, spent time: 1.0min
+[Epoch:2/3](Step: 824/1380), train_loss: 30.0000, token_entropy: 1.8906, spent time: 1.0min
+[Epoch:2/3](Step: 828/1380), train_loss: 10.6250, token_entropy: 1.7578, spent time: 1.0min
+[Epoch:2/3](Step: 832/1380), train_loss: 4.6875, token_entropy: 2.0312, spent time: 1.0min
+[Epoch:2/3](Step: 836/1380), train_loss: 13.2500, token_entropy: 2.0156, spent time: 1.0min
+[Epoch:2/3](Step: 840/1380), train_loss: 16.3750, token_entropy: 1.7422, spent time: 1.0min
+[Epoch:2/3](Step: 844/1380), train_loss: 19.7500, token_entropy: 1.5703, spent time: 1.0min
+[Epoch:2/3](Step: 848/1380), train_loss: 13.7500, token_entropy: 1.3125, spent time: 1.0min
+[Epoch:2/3](Step: 852/1380), train_loss: 6.8438, token_entropy: 1.8594, spent time: 1.0min
+[Epoch:2/3](Step: 856/1380), train_loss: 6.4062, token_entropy: 1.8984, spent time: 1.0min
+[Epoch:2/3](Step: 860/1380), train_loss: 10.1250, token_entropy: 1.5938, spent time: 1.0min
+[Epoch:2/3](Step: 864/1380), train_loss: 7.0625, token_entropy: 1.9453, spent time: 1.0min
+[Epoch:2/3](Step: 868/1380), train_loss: 16.7500, token_entropy: 1.9062, spent time: 1.0min
+[Epoch:2/3](Step: 872/1380), train_loss: 6.0000, token_entropy: 1.9141, spent time: 1.0min
+[Epoch:2/3](Step: 876/1380), train_loss: 8.3125, token_entropy: 1.8359, spent time: 1.0min
+[Epoch:2/3](Step: 880/1380), train_loss: 7.5625, token_entropy: 1.8438, spent time: 1.0min
+[Epoch:2/3](Step: 884/1380), train_loss: 7.3750, token_entropy: 1.8516, spent time: 1.0min
+[Epoch:2/3](Step: 888/1380), train_loss: 18.6250, token_entropy: 1.7969, spent time: 1.0min
+[Epoch:2/3](Step: 892/1380), train_loss: 8.5000, token_entropy: 1.8125, spent time: 1.0min
+[Epoch:2/3](Step: 896/1380), train_loss: 10.0000, token_entropy: 2.0312, spent time: 1.0min
+[Epoch:2/3](Step: 900/1380), train_loss: 11.5000, token_entropy: 1.8672, spent time: 1.0min
+[Epoch:2/3](Step: 904/1380), train_loss: 7.0625, token_entropy: 1.8906, spent time: 1.0min
+[Epoch:2/3](Step: 908/1380), train_loss: 10.8750, token_entropy: 1.6406, spent time: 1.0min
+[Epoch:2/3](Step: 912/1380), train_loss: 10.8750, token_entropy: 1.8359, spent time: 1.0min
+[Epoch:2/3](Step: 916/1380), train_loss: 4.3125, token_entropy: 1.7891, spent time: 1.0min
+[Epoch:2/3](Step: 920/1380), train_loss: 7.0625, token_entropy: 2.1094, spent time: 1.0min
+Processed prompts: 100%|██████████████████████████████████████| 5000/5000 [03:14<00:00, 25.66it/s, est. speed input: 4154.23 toks/s, output: 5872.66 toks/s]
+[Epoch:2/3], format accuracy: 0.976, answer accuracy: 0.421, reward accuracy: 0.421
+wandb: 
+wandb: Run history:
+wandb:                  epoch ▁
+wandb:   eval/answer_accuracy ▁
+wandb:   eval/format_accuracy ▁
+wandb:   eval/reward_accuracy ▁
+wandb:             train/loss ▄▂▄▄▃▂▂▃▂█▂▆▃▃▁▂▂▃▄▂▁▁▂▃▂▂▃▃▂▂▂▃▂▇▃▂▂▂▂▂
+wandb:               train/lr █████▇▇▇▇▆▆▆▆▆▅▅▅▅▅▅▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▁▁▁▁
+wandb: train/spent time (min) ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁████████████████
+wandb:    train/token_entropy ▅▆█▇▄▄▄▇▇█▆▆▅▆▃█▄▃▅▅▅▆▁▆▃▅▃▄▄▅▆▅▄▄▅▅▂▅▄▄
+wandb:             train_step ▁▁▂▂▂▂▂▃▃▃▃▃▃▄▄▄▄▅▅▅▅▅▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇███
+wandb: 
+wandb: Run summary:
+wandb:                  epoch 1
+wandb:   eval/answer_accuracy 0.421
+wandb:   eval/format_accuracy 0.976
+wandb:   eval/reward_accuracy 0.421
+wandb:             train/loss 7.0625
+wandb:               train/lr 3e-05
+wandb: train/spent time (min) 1
+wandb:    train/token_entropy 2.10938
+wandb:             train_step 919
+wandb: 
+wandb: 🚀 View run ds_512_G_3_ep_2/3 at: https://wandb.ai/cs336_assign5/EI/runs/9s2lpke9
+wandb: ⭐️ View project at: https://wandb.ai/cs336_assign5/EI
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260131_011056-9s2lpke9/logs
+----------Finished one SFT epoch---------
+wandb: Tracking run with wandb version 0.24.0
+wandb: Run data is saved locally in /root/autodl-tmp/assignment5-alignment/cs336_alignment/wandb/run-20260131_011626-2ugpvqjr
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run ds_512_G_3_ep_3/3
+wandb: ⭐️ View project at https://wandb.ai/cs336_assign5/EI
+wandb: 🚀 View run at https://wandb.ai/cs336_assign5/EI/runs/2ugpvqjr
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+        - Avoid using `tokenizers` before the fork if possible
+        - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+        - Avoid using `tokenizers` before the fork if possible
+        - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+        - Avoid using `tokenizers` before the fork if possible
+        - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+huggingface/tokenizers: The current process just got forked, after parallelism has already been used. Disabling parallelism to avoid deadlocks...
+To disable this warning, you can either:
+        - Avoid using `tokenizers` before the fork if possible
+        - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/EI/trainer.py", line 93, in <module>
+    sft_trainer.train()
+  File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/EI/sft.py", line 233, in train
+    self.train_epoch(epoch)
+  File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/EI/sft.py", line 138, in train_epoch
+    log_probs_res = get_response_log_probs(
+                    ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/sft_for_math/helper_funcs.py", line 144, in get_response_log_probs
+    token_entropy = compute_entropy(logits)
+                    ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/sft_for_math/helper_funcs.py", line 105, in compute_entropy
+    H = lg_Z - torch.sum(p * logits, dim=-1)   # (b, n)
+                         ~~^~~~~~~~
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 640.00 MiB. GPU 0 has a total capacity of 23.52 GiB of which 322.69 MiB is free. Including non-PyTorch memory, this process has 23.18 GiB memory in use. Of the allocated memory 21.93 GiB is allocated by PyTorch, and 852.43 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank0]:   File "<frozen runpy>", line 88, in _run_code
+[rank0]:   File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/EI/trainer.py", line 93, in <module>
+[rank0]:     sft_trainer.train()
+[rank0]:   File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/EI/sft.py", line 233, in train
+[rank0]:     self.train_epoch(epoch)
+[rank0]:   File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/EI/sft.py", line 138, in train_epoch
+[rank0]:     log_probs_res = get_response_log_probs(
+[rank0]:                     ^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/sft_for_math/helper_funcs.py", line 144, in get_response_log_probs
+[rank0]:     token_entropy = compute_entropy(logits)
+[rank0]:                     ^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/root/autodl-tmp/assignment5-alignment/cs336_alignment/sft_for_math/helper_funcs.py", line 105, in compute_entropy
+[rank0]:     H = lg_Z - torch.sum(p * logits, dim=-1)   # (b, n)
+[rank0]:                          ~~^~~~~~~~
+[rank0]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 640.00 MiB. GPU 0 has a total capacity of 23.52 GiB of which 322.69 MiB is free. Including non-PyTorch memory, this process has 23.18 GiB memory in use. Of the allocated memory 21.93 GiB is allocated by PyTorch, and 852.43 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+wandb: 
+wandb: 🚀 View run ds_512_G_3_ep_3/3 at: https://wandb.ai/cs336_assign5/EI/runs/2ugpvqjr
+wandb: Find logs at: wandb/run-20260131_011626-2ugpvqjr/logs
+[rank0]:[W131 01:16:34.188825425 ProcessGroupNCCL.cpp:1250] Warning: WARNING: process group has NOT been destroyed before we destruct ProcessGroupNCCL. On normal program exit, the application should call destroy_process_group to ensure that any pending NCCL operations have finished in this process. In rare cases this process can exit before this point and block the progress of another member of the process group. This constraint has always been present,  but this warning has only been added since PyTorch 2.4 (function operator())
+root@autodl-container-0uq7qp0352-4627b192:~/autodl-tmp/assignment5-
