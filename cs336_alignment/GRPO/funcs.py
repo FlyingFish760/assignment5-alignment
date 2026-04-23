@@ -215,11 +215,11 @@ def compute_policy_gradient_loss(
 
     else:
         if advantages == None:
-            raise ValueError("advantages is required for 'reinforce_with_baseline' loss.")
+            raise ValueError("advantages is required for 'grpo_clip' loss.")
         if old_log_probs == None:
-            raise ValueError("old_log_probs is required for 'reinforce_with_baseline' loss.")
+            raise ValueError("old_log_probs is required for 'grpo_clip' loss.")
         if cliprange == None:
-            raise ValueError("cliprange is required for 'reinforce_with_baseline' loss.")
+            raise ValueError("cliprange is required for 'grpo_clip' loss.")
         
         loss, metadata_clip_loss = compute_grpo_clip_loss(
             advantages,
