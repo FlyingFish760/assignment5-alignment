@@ -1,3 +1,4 @@
+import os
 from collections.abc import Callable
 from curses import meta
 from typing import Dict, List, Tuple, Literal, Optional, Iterator
@@ -6,6 +7,7 @@ from unittest.mock import patch
 import math
 import torch
 from torch.nn import Parameter
+from transformers import PreTrainedModel
 from vllm import LLM, SamplingParams
 from vllm.model_executor import set_random_seed as vllm_set_random_seed
 from einops import repeat
@@ -355,6 +357,7 @@ def init_vllm(model_id: str, device: str, seed: int, gpu_memory_utilization: flo
             enable_prefix_caching=True,
             gpu_memory_utilization=gpu_memory_utilization,
         )
+
     
 def evaluate_vllm(
     vllm_model: LLM,
@@ -418,6 +421,17 @@ def evaluate_vllm(
     }
 
     return eval_metrics, records
+
+def save_policy_model(
+    model: PreTrainedModel,
+    reward_accuracy: float,
+    train_step: int,
+    save_dir: str
+):
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = f"{save_dir}/reward_{reward_accuracy}_train_step_{train_step}.pt"
+    torch.save(model.state_dict(), save_path)
+
 
 def get_grad_l2_norm(params: Iterator[Parameter]) -> float:
     total_norm = 0

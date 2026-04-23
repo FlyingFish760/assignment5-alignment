@@ -43,13 +43,17 @@ class GRPOConfig:
     advantage_eps: float = 1e-6
     use_std_normalization: bool = True
 
-    loss_type: str = "reinforce_with_baseline"   # Literal["no_baseline","reinforce_with_baseline","grpo_clip"]
-    loss_norm_type: str = "masked_mean"
+    loss_type: str = "grpo_clip"   # ["no_baseline","reinforce_with_baseline","grpo_clip"]
+    loss_norm_type: str = "masked_mean"  # ["masked_mean", "masked_norm"]
 
     clip_range: float = 0.2
 
     log_loss_steps: int = 8   # Better to be divisible by the train_steps per epoch
+
     response_batch_size: int = 128   # Batch size of the question set for testing response lengths
+
+    sft_model_path: Optional[str] = None   # Path to load a sft model for the policy model
+    save_policy_dir: str = "../out/GRPO"
 
 
 @dataclass

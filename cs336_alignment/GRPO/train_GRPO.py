@@ -68,6 +68,10 @@ if __name__ == "__main__":
         local_files_only=True
     )
     policy_model = policy_model.to(cfg.device.policy_device)
+    if cfg.grpo.sft_model_path is not None: 
+        model_opt_state_dict = torch.load(cfg.grpo.sft_model_path)
+        policy_model.load_state_dict(model_opt_state_dict["model_state_dict"])
+        del model_opt_state_dict
 
     rollout_model = init_vllm(
         model_id="Qwen/Qwen2.5-Math-1.5B",

@@ -13,7 +13,8 @@ from transformers import PreTrainedModel, PreTrainedTokenizer
 import wandb
 import numpy as np
 
-from GRPO.funcs import compute_group_normalized_rewards, grpo_microbatch_train_step, evaluate_vllm, get_grad_l2_norm
+from GRPO.funcs import compute_group_normalized_rewards, grpo_microbatch_train_step, evaluate_vllm,\
+      get_grad_l2_norm, save_policy_model
 from sft_for_math.helper_funcs import tokenize_prompt_and_output, get_response_log_probs
 from sft_for_math.utils import logger
 from GRPO.configs.defaults import ExperimentConfig
@@ -52,6 +53,11 @@ class GRPOTrainer:
         self.question_dataset = question_dataset
         self.tokenizer = tokenizer
         self.start_time = start_time
+        
+        # Some flags for saving model with different levels of rewards (for debugging)
+        self.reward_good_saved = False
+        self.reward_high_saved = False
+        self.reward_low_saved = False
 
         # Init full evaluation dataset
         with open(self.cfg.data.val_data_path, "r", encoding="utf-8") as f:
@@ -453,6 +459,37 @@ class GRPOTrainer:
                             "train/response_len_std": response_len_std
                         }
                         self.wandb_run.log(wandb_log)
+
+                    # Save the model for debugging 
+                    # when reward 0.85 < accu < 0.9: estimated to be correct model
+                    # when reward accu > 0.95: might be too reward-oriented model (reward-hacking)
+                    # when reward accu < 0.2: estimated to be wrong model (could also be reward-hacking)
+                    if 0.85 < reward_acc < 0.9 and not self.reward_good_saved:
+                        save_policy_model(
+                            self.policy_model,
+                            reward_acc,
+                            cur_step,
+                            self.cfg.grpo.save_policy_dir
+                        )
+                        self.reward_good_saved = True
+
+                    if reward_acc > 0.95 and not self.reward_high_saved:
+                        save_policy_model(
+                            self.policy_model,
+                            reward_acc,
+                            cur_step,
+                            self.cfg.grpo.save_policy_dir
+                        )
+                        self.reward_high_saved = True
+
+                    if reward_acc < 0.2 and not self.reward_low_saved:
+                        save_policy_model(
+                            self.policy_model,
+                            reward_acc,
+                            cur_step,
+                            self.cfg.grpo.save_policy_dir
+                        )
+                        self.reward_low_saved = True
 
 
 if __name__ == "__main__":

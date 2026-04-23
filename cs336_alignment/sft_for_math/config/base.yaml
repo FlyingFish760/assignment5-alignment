@@ -18,7 +18,7 @@ wandb_logging:
   use_wandb: True
   wandb_team: "cs336_assign5"
   wandb_project: "SFT_for_MATH"
-  wandb_run: "sample_3496_lr_1e-4_bs_32"
+  wandb_run: "sample_3496_lr_1e-4_bs_32_new"
   # config:
   #   max_learning_rate: 1.0e-4
   #   model_size: "test model"

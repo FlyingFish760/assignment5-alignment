@@ -1,0 +1,9 @@
+grpo:
+  sft_model_path: ../out/lr_0.0001_874.pt
+  loss_norm_type: masked_norm
+
+wandb:
+  use_wandb: True
+  wandb_team: cs336_assign5
+  wandb_project: GRPO
+  wandb_name: from_SFT_mask_norm_grpo_clip

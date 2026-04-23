@@ -100,9 +100,9 @@ if __name__=="__main__":
     pass
 
     format_train_data(
-        file_path=r"data/sft-cs336-assign5-datasets/sft-reason/sft_gpt-oss-120b_filtered.jsonl",
-        prompt_template_path=r"cs336_alignment/prompts/r1_zero.prompt",
-        save_path="data/sft-cs336-assign5-datasets/sft-reason/sft_train.jsonl"
+        file_path=r"../data/sft-cs336-assign5-datasets/sft-reason/sft_gpt-oss-120b_filtered.jsonl",
+        prompt_template_path=r"./prompts/r1_zero.prompt",
+        save_path="../data/sft-cs336-assign5-datasets/sft-reason/sft_train.jsonl"
     )
 
     # format_val_data(
