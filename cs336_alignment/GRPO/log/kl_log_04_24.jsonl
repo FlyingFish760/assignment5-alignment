@@ -1,0 +1,7 @@
+{"grpo_step": 0, "micro_step": 128, "kl_divergence": 0.0}
+{"grpo_step": 1, "micro_step": 128, "kl_divergence": 0.0}
+{"grpo_step": 0, "micro_step": 16, "kl_divergence": 2.7865171432495117e-06}
+{"grpo_step": 0, "micro_step": 16, "kl_divergence": -0.01318359375}
+{"grpo_step": 1, "micro_step": 16, "kl_divergence": -0.00750732421875}
+{"grpo_step": 2, "micro_step": 16, "kl_divergence": -0.004638671875}
+{"grpo_step": 3, "micro_step": 16, "kl_divergence": -0.00567626953125}

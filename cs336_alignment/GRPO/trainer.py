@@ -1,11 +1,12 @@
 import random
 import os
 import json
-from typing import Callable, List, Dict
+from typing import Callable, List, Dict, Optional
 from pathlib import Path
 import time
 
 import torch
+from torch import Tensor
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
 import torch.nn as nn
@@ -282,7 +283,7 @@ class GRPOTrainer:
         response_len_std = np.std(response_lens)
         return response_len_mean, response_len_std
 
-    def train_step(self, grpo_step):
+    def train_step(self, grpo_step) -> None:
         # Sample a batch of questions
         num_sample_questions = self.cfg.grpo.rollout_batch_size // self.cfg.grpo.group_size
         sample_questions = self.sample_batch_question(
@@ -335,8 +336,8 @@ class GRPOTrainer:
                     "response": rollout_responses[i],
                     "answer": rollout_answers[i],
                     "response_len": len(rollout_responses[i]),
-                    "reward": raw_rewards[i],
-                    "advantage": advantages[i]
+                    "reward": raw_rewards[i].item(),
+                    "advantage": advantages[i].item()
                 }
                 self.response_log_file.write(json.dumps(data) + "\n")
             self.response_log_file.flush()
@@ -381,7 +382,6 @@ class GRPOTrainer:
         accumulated_token_entropy = 0
         accumulated_num_tokens = 0
         for epoch in range(self.cfg.grpo.epochs_per_rollout_batch):
-            policy_log_probs_list = []
             for step in range(n_train_steps_per_epoch):
                 # The step (for logging) is based on the whole grpo process
                 cur_step = grpo_step * n_train_steps_per_grpo_step + epoch * n_train_steps_per_epoch + step + 1
@@ -400,9 +400,7 @@ class GRPOTrainer:
                     labels=action_ids_batch,
                     return_token_entropy=True
                 )
-                policy_log_probs_batch = log_prob_res["log_probs"]
-                if self.log_kl:    # Save the policy_log_probs_batch for later computing kl-divergence
-                    policy_log_probs_list.append(policy_log_probs_batch)   
+                policy_log_probs_batch = log_prob_res["log_probs"] 
                 token_entropy = log_prob_res["token_entropy"] 
                 masked_token_entropy = token_entropy * response_masks_batch
                 accumulated_token_entropy += masked_token_entropy.sum().item()
@@ -529,20 +527,31 @@ class GRPOTrainer:
                         self.reward_low_saved = True
 
                     # Log KL-divergence (for debugging training collpase due to masked_norm)
-                    if self.log_kl:
-                        policy_log_probs = torch.cat(policy_log_probs_list, dim=0)
-                        policy_log_probs_list = []
-                        kl_div = compute_kl_divergence(
-                            policy_log_probs,
-                            old_log_policy_probs,
-                            response_masks
-                        )
-                        data = {
-                            "grpo_step": grpo_step,
-                            "micro_step": step + 1,
-                            "kl_divergence": kl_div
-                        }
-                        self.kl_log_file.write(json.dumps(data) + "\n")
+                    updated_policy_probs_list = []
+                    for batch_ind in range(0, len(state_ids), self.cfg.grpo.micro_batch_size):
+                        state_ids_batch = state_ids[batch_ind: batch_ind+self.cfg.grpo.micro_batch_size].to(self.cfg.device.policy_device)
+                        action_ids_batch = action_ids[batch_ind: batch_ind+self.cfg.grpo.micro_batch_size].to(self.cfg.device.policy_device)
+                        with torch.inference_mode():
+                            log_prob_res = get_response_log_probs(
+                                self.policy_model,
+                                state_ids_batch,
+                                action_ids_batch,
+                                return_token_entropy=False
+                            )
+                            updated_policy_probs_list.append(log_prob_res["log_probs"])
+                    updated_log_policy_probs = torch.cat(updated_policy_probs_list, dim=0)
+
+                    kl_div = compute_kl_divergence(
+                        updated_log_policy_probs,
+                        old_log_policy_probs,
+                        response_masks.to(self.cfg.device.policy_device)
+                    )
+                    data = {
+                        "grpo_step": grpo_step,
+                        "micro_step": step + 1,
+                        "kl_divergence": kl_div.item()
+                    }
+                    self.kl_log_file.write(json.dumps(data) + "\n")
             self.kl_log_file.flush()
 
 
