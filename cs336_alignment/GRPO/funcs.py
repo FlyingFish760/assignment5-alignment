@@ -6,6 +6,8 @@ from unittest.mock import patch
 
 import math
 import torch
+from jaxtyping import Float, Int
+from torch import Tensor
 from torch.nn import Parameter
 from transformers import PreTrainedModel
 from vllm import LLM, SamplingParams
@@ -441,3 +443,12 @@ def get_grad_l2_norm(params: Iterator[Parameter]) -> float:
             total_norm += p_norm.item() ** 2
 
     return total_norm ** (1 / 2)
+
+def compute_kl_divergence(
+        policy_log_probs: Float[Tensor, "B T"],
+        old_log_probs: Float[Tensor, "B T"], 
+        response_mask: Int[Tensor, "B T"]
+    ):
+    token_kl = policy_log_probs - old_log_probs
+    masked_kl = token_kl * response_mask
+    return masked_kl.sum() / response_mask.sum()

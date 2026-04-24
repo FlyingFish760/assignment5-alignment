@@ -1,4 +1,5 @@
 import random
+import os
 import json
 from typing import Callable, List, Dict
 from pathlib import Path
@@ -14,7 +15,7 @@ import wandb
 import numpy as np
 
 from GRPO.funcs import compute_group_normalized_rewards, grpo_microbatch_train_step, evaluate_vllm,\
-      get_grad_l2_norm, save_policy_model
+      get_grad_l2_norm, save_policy_model, compute_kl_divergence
 from sft_for_math.helper_funcs import tokenize_prompt_and_output, get_response_log_probs
 from sft_for_math.utils import logger
 from GRPO.configs.defaults import ExperimentConfig
@@ -126,6 +127,23 @@ class GRPOTrainer:
             wandb.define_metric("train/*", step_metric="train_step")
             # everything that starts with eval/ is tied to eval_step
             wandb.define_metric("eval/*", step_metric="eval_grpo_step")
+
+        # Set up logging
+        log_dir = self.cfg.log.log_dir
+        os.makedirs(log_dir, exist_ok=True)
+        self.log_response = False
+        self.log_kl = False
+
+        if self.cfg.log.response_log_filename != None:
+            self.log_response = True
+            print("--- logging response information ---")
+            response_file_path = log_dir + "/" + self.cfg.log.response_log_filename
+            self.response_log_file = open(response_file_path, "a")
+        if self.cfg.log.kl_log_filename != None:
+            self.log_kl = True
+            print("--- logging kl divergence information ---")
+            kl_file_path = log_dir + "/" + self.cfg.log.kl_log_filename
+            self.kl_log_file = open(kl_file_path, "a")
 
     def load_policy_into_vllm_instance(self, policy: PreTrainedModel, llm: LLM):
         """
@@ -307,6 +325,22 @@ class GRPOTrainer:
             self.cfg.grpo.use_std_normalization
         )
 
+        # Log response information (for debugging training collpase due to masked_norm)
+        if self.log_response:
+            for i in range(len(rollout_prompts)):
+                data = {
+                    "grpo_step": grpo_step,
+                    "sample_id": i,
+                    "prompt": rollout_prompts[i],
+                    "response": rollout_responses[i],
+                    "answer": rollout_answers[i],
+                    "response_len": len(rollout_responses[i]),
+                    "reward": raw_rewards[i],
+                    "advantage": advantages[i]
+                }
+                self.response_log_file.write(json.dumps(data) + "\n")
+            self.response_log_file.flush()
+
         # #--------------(Train steps) Update policy using policy gradient---------------
         # Tokenize prompts and responses
         tokenized_res = tokenize_prompt_and_output(
@@ -347,6 +381,7 @@ class GRPOTrainer:
         accumulated_token_entropy = 0
         accumulated_num_tokens = 0
         for epoch in range(self.cfg.grpo.epochs_per_rollout_batch):
+            policy_log_probs_list = []
             for step in range(n_train_steps_per_epoch):
                 # The step (for logging) is based on the whole grpo process
                 cur_step = grpo_step * n_train_steps_per_grpo_step + epoch * n_train_steps_per_epoch + step + 1
@@ -366,6 +401,8 @@ class GRPOTrainer:
                     return_token_entropy=True
                 )
                 policy_log_probs_batch = log_prob_res["log_probs"]
+                if self.log_kl:    # Save the policy_log_probs_batch for later computing kl-divergence
+                    policy_log_probs_list.append(policy_log_probs_batch)   
                 token_entropy = log_prob_res["token_entropy"] 
                 masked_token_entropy = token_entropy * response_masks_batch
                 accumulated_token_entropy += masked_token_entropy.sum().item()
@@ -490,6 +527,23 @@ class GRPOTrainer:
                             self.cfg.grpo.save_policy_dir
                         )
                         self.reward_low_saved = True
+
+                    # Log KL-divergence (for debugging training collpase due to masked_norm)
+                    if self.log_kl:
+                        policy_log_probs = torch.cat(policy_log_probs_list, dim=0)
+                        policy_log_probs_list = []
+                        kl_div = compute_kl_divergence(
+                            policy_log_probs,
+                            old_log_policy_probs,
+                            response_masks
+                        )
+                        data = {
+                            "grpo_step": grpo_step,
+                            "micro_step": step + 1,
+                            "kl_divergence": kl_div
+                        }
+                        self.kl_log_file.write(json.dumps(data) + "\n")
+            self.kl_log_file.flush()
 
 
 if __name__ == "__main__":

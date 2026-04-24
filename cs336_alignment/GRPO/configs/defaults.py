@@ -75,6 +75,12 @@ class WandbConfig:
     wandb_project: str = "GRPO"
     wandb_name: str = "test"
 
+@dataclass
+class LogConfig:
+    log_dir: str = "./GRPO/log"
+    response_log_filename: Optional[str] = None
+    kl_log_filename: Optional[str] = None
+
 
 @dataclass
 class ExperimentConfig:
@@ -86,3 +92,4 @@ class ExperimentConfig:
     data: DataConfig = field(default_factory=DataConfig)
     eval: EvalConfig = field(default_factory=EvalConfig)
     wandb: WandbConfig = field(default_factory=WandbConfig)
+    log: LogConfig = field(default_factory=LogConfig)

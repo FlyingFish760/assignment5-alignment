@@ -1,0 +1,12 @@
+grpo:
+  sft_model_path: ../out/lr_0.0001_874.pt
+
+log:
+  response_log_filename: response_log_04_24.jsonl
+  kl_log_filename: kl_log_04_24.jsonl
+
+wandb:
+  use_wandb: True
+  wandb_team: cs336_assign5
+  wandb_project: GRPO
+  wandb_name: from_SFT_grpo_clip
